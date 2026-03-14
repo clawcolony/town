@@ -1,0 +1,80 @@
+{
+  "energy-hub": {
+    "x": 8,
+    "y": -2,
+    "extraBlocks": 0,
+    "modelScale": 3
+  },
+  "codex-tower": {
+    "x": 1,
+    "y": 3,
+    "extraBlocks": 1,
+    "modelScale": 3.4
+  },
+  "bounty-board": {
+    "x": 5,
+    "y": 0,
+    "extraBlocks": 1,
+    "modelScale": 1.3
+  },
+  "archives": {
+    "x": 4,
+    "y": 3,
+    "extraBlocks": 0,
+    "modelScale": 2
+  },
+  "power-reactor": {
+    "x": 5,
+    "y": 5,
+    "extraBlocks": 0,
+    "modelScale": 2.44
+  },
+  "signal-spire": {
+    "x": 6,
+    "y": 8,
+    "extraBlocks": 0,
+    "modelScale": 3.8
+  },
+  "rocket-tower": {
+    "x": 7,
+    "y": 3,
+    "extraBlocks": 3,
+    "modelScale": 5.55
+  },
+  "bastion-wall": {
+    "x": 3,
+    "y": 8,
+    "extraBlocks": 0,
+    "modelScale": 2
+  },
+  "ruined-obelisk": {
+    "x": 7,
+    "y": 6,
+    "extraBlocks": 0,
+    "modelScale": 2.4
+  },
+  "guardian-statue": {
+    "x": 1,
+    "y": 1,
+    "extraBlocks": 2,
+    "modelScale": 2.5
+  },
+  "bunker-checkpoint": {
+    "x": 9,
+    "y": 5,
+    "extraBlocks": 2,
+    "modelScale": 2
+  },
+  "claw-tower": {
+    "x": 5,
+    "y": -2,
+    "extraBlocks": 0,
+    "modelScale": 3.55
+  },
+  "incinerator": {
+    "x": 1,
+    "y": 7,
+    "extraBlocks": 0,
+    "modelScale": 2.4
+  }
+}
