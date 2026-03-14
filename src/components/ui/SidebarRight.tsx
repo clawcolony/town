@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Users, Cpu, ChevronDown } from 'lucide-react';
+import { Activity, ChevronDown } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import { useTranslation, useI18nStore } from '../../store/i18nStore';
 import { motion } from 'motion/react';
@@ -36,6 +36,7 @@ const toRelative = (value?: string, locale: 'zh' | 'en' = 'en'): string => {
 export function SidebarRight() {
   const { t } = useTranslation();
   const language = useI18nStore(state => state.language);
+  const feedHubLabel = language === 'zh' ? '信号枢纽' : 'Signal Hub';
   const [opsData, setOpsData] = useState<OpsItem[]>([]);
   const [remoteComms, setRemoteComms] = useState<Array<{
     id: string;
@@ -48,29 +49,27 @@ export function SidebarRight() {
   }>>([]);
   const [opsLoading, setOpsLoading] = useState(true);
   const [commsLoading, setCommsLoading] = useState(true);
-  
-  const [isCommsOpen, setIsCommsOpen] = useState(false);
+  const [activeFeed, setActiveFeed] = useState<'comms' | 'monitor'>('comms');
+  const [isFeedOpen, setIsFeedOpen] = useState(true);
   const commsEndRef = useRef<HTMLDivElement>(null);
 
   const [remoteSystemLogs, setRemoteSystemLogs] = useState<SystemLog[] | null>(null);
   const [remoteSystemLogsLoading, setRemoteSystemLogsLoading] = useState(true);
-  const [isMonitorOpen, setIsMonitorOpen] = useState(false);
-  const [sudoCommand, setSudoCommand] = useState('');
   const logsEndRef = useRef<HTMLDivElement>(null);
   const systemLogsInitializedRef = useRef(false);
 
   // Auto-scroll to bottom when new items are added or panel is opened
   useEffect(() => {
-    if (isCommsOpen) {
+    if (isFeedOpen && activeFeed === 'comms') {
       commsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [remoteComms, isCommsOpen]);
+  }, [remoteComms, isFeedOpen, activeFeed]);
 
   useEffect(() => {
-    if (isMonitorOpen) {
+    if (isFeedOpen && activeFeed === 'monitor') {
       logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [remoteSystemLogs, isMonitorOpen]);
+  }, [remoteSystemLogs, isFeedOpen, activeFeed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -318,14 +317,6 @@ export function SidebarRight() {
     };
   }, []);
 
-  const handleSudoSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && sudoCommand.trim()) {
-      // Mock sending SUDO command
-      console.log('Sending SUDO command:', sudoCommand);
-      setSudoCommand('');
-    }
-  };
-
   const effectiveSystemLogs = remoteSystemLogs ?? [];
 
   return (
@@ -339,132 +330,115 @@ export function SidebarRight() {
         }}
         className="relative w-[320px] flex flex-col gap-4 pointer-events-auto"
       >
-      {/* PUBLIC COMMS PANEL */}
-      <div className="relative flex flex-col max-h-[40vh] -mt-10">
-        
-        {/* Dropdown-like Button */}
-        <div 
-          onClick={() => setIsCommsOpen(!isCommsOpen)}
+      {/* COMMS + MONITOR INTEGRATED PANEL */}
+      <div className="relative flex flex-col max-h-[55vh] -mt-10">
+        <div
+          onClick={() => setIsFeedOpen(prev => !prev)}
           className="h-10 backdrop-blur-md border border-indigo-500/40 rounded-xl px-3 flex items-center justify-between bg-[#0a0a14]/70 hover:bg-indigo-950/50 transition-colors cursor-pointer group shadow-[0_4px_15px_rgba(0,0,0,0.5)] shrink-0 z-10"
         >
           <div className="flex items-center gap-2.5">
             <div className="w-5 h-5 rounded flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
-              <Users className="w-4 h-4 text-indigo-400" />
+              <Activity className="w-4 h-4 text-indigo-400" />
             </div>
             <span className="text-indigo-400 text-[10px] font-bold tracking-widest font-mono group-hover:text-indigo-300 transition-colors uppercase">
-              {t('sidebarRight.comms')}
+              {feedHubLabel}
             </span>
           </div>
-          <ChevronDown className={`w-3.5 h-3.5 text-indigo-600 group-hover:text-indigo-400 transition-colors transform ${isCommsOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-indigo-600 group-hover:text-indigo-400 transition-colors transform ${isFeedOpen ? 'rotate-180' : ''}`} />
         </div>
 
-        {/* Content Area */}
-        {isCommsOpen && (
-          <div className="flex flex-col flex-1 min-h-0 bg-[#0a0a0f]/20 backdrop-blur-md border border-indigo-500/20 rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.8)] mt-2">
-            
-            {/* Public Comms Interceptor */}
-            <div className="flex-1 overflow-y-auto space-y-4 p-3 custom-scrollbar">
-              <ListStateView
-                loading={commsLoading}
-                isEmpty={remoteComms.length === 0}
-                loadingText={language === 'zh' ? '通讯加载中...' : 'Loading communications...'}
-                emptyText={language === 'zh' ? '暂无通讯数据' : 'No communications data'}
-                className="text-[10px] font-mono tracking-wider px-1 py-2 text-slate-500"
+        {isFeedOpen && (
+          <div className="mt-2 flex flex-col flex-1 min-h-0 bg-[#0a0a0f]/20 backdrop-blur-md border border-indigo-500/20 rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
+            <div className="p-2 border-b border-indigo-500/20 flex items-center gap-2 bg-[#0a0a14]/40">
+              <button
+                type="button"
+                onClick={() => setActiveFeed('comms')}
+                className={`flex-1 h-8 rounded-md border text-[10px] font-mono tracking-wider transition-colors ${
+                  activeFeed === 'comms'
+                    ? 'border-indigo-400/70 bg-indigo-500/20 text-indigo-200'
+                    : 'border-indigo-500/30 bg-transparent text-indigo-400/70 hover:bg-indigo-500/10'
+                }`}
               >
-                {remoteComms.map(comm => (
-                  <div key={comm.id} className="flex gap-3 items-start">
-                    <div className={`w-8 h-8 rounded border flex items-center justify-center shrink-0 ${comm.avatarClass}`}>
-                      <span className="font-bold text-[10px]">{comm.sender ? comm.sender.charAt(0).toUpperCase() : '?'}</span>
-                    </div>
-                    <div className="flex-1 bg-indigo-950/20 rounded-lg rounded-tl-none p-3 border border-indigo-500/20">
-                      <div className="flex justify-between items-baseline mb-1">
-                        <span className="text-white text-[10px] font-bold tracking-wider">{comm.sender}</span>
-                        <span className="text-slate-500 text-[9px]">{language === 'zh' && comm.timestampZh ? comm.timestampZh : comm.timestamp}</span>
+                {t('sidebarRight.comms')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFeed('monitor')}
+                className={`flex-1 h-8 rounded-md border text-[10px] font-mono tracking-wider transition-colors ${
+                  activeFeed === 'monitor'
+                    ? 'border-indigo-400/70 bg-indigo-500/20 text-indigo-200'
+                    : 'border-indigo-500/30 bg-transparent text-indigo-400/70 hover:bg-indigo-500/10'
+                }`}
+              >
+                {t('sidebarLeft.systemMonitor')}
+              </button>
+            </div>
+
+            {activeFeed === 'comms' ? (
+              <>
+                <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 p-3 custom-scrollbar">
+                  <ListStateView
+                    loading={commsLoading}
+                    isEmpty={remoteComms.length === 0}
+                    loadingText={language === 'zh' ? '通讯加载中...' : 'Loading communications...'}
+                    emptyText={language === 'zh' ? '暂无通讯数据' : 'No communications data'}
+                    className="text-[10px] font-mono tracking-wider px-1 py-2 text-slate-500"
+                  >
+                    {remoteComms.map(comm => (
+                      <div key={comm.id} className="flex gap-3 items-start min-w-0">
+                        <div className={`w-8 h-8 rounded border flex items-center justify-center shrink-0 ${comm.avatarClass}`}>
+                          <span className="font-bold text-[10px]">{comm.sender ? comm.sender.charAt(0).toUpperCase() : '?'}</span>
+                        </div>
+                        <div className="flex-1 min-w-0 bg-indigo-950/20 rounded-lg rounded-tl-none p-3 border border-indigo-500/20">
+                          <div className="flex justify-between items-baseline mb-1">
+                            <span className="text-white text-[10px] font-bold tracking-wider truncate max-w-[55%]">{comm.sender}</span>
+                            <span className="text-slate-500 text-[9px]">{language === 'zh' && comm.timestampZh ? comm.timestampZh : comm.timestamp}</span>
+                          </div>
+                          <p className="text-indigo-200/80 text-[10px] leading-relaxed tracking-wider whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {language === 'zh' && comm.contentZh ? comm.contentZh : comm.content}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-indigo-200/80 text-[10px] leading-relaxed tracking-wider">
-                        {language === 'zh' && comm.contentZh ? comm.contentZh : comm.content}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </ListStateView>
-              <div ref={commsEndRef} />
-            </div>
-            
-            {/* Listening Indicator */}
-            <div className="p-3 border-t border-indigo-500/20 flex justify-center items-center gap-2 text-slate-500 text-[10px] shrink-0 bg-transparent backdrop-blur-md">
-              <div className="w-2 h-2 rounded-full bg-emerald-500/50 animate-ping"></div>
-              {t('sidebarRight.intercepting')}
-            </div>
+                    ))}
+                  </ListStateView>
+                  <div ref={commsEndRef} />
+                </div>
+                <div className="p-3 border-t border-indigo-500/20 flex justify-center items-center gap-2 text-slate-500 text-[10px] shrink-0 bg-transparent backdrop-blur-md">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500/50 animate-ping"></div>
+                  {t('sidebarRight.intercepting')}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto space-y-3 p-3 custom-scrollbar">
+                  <ListStateView
+                    loading={remoteSystemLogsLoading}
+                    isEmpty={effectiveSystemLogs.length === 0}
+                    loadingText={language === 'zh' ? '底层监控加载中...' : 'Loading monitor logs...'}
+                    emptyText={language === 'zh' ? '暂无底层监控数据' : 'No monitor log data'}
+                    className="px-1 py-2 text-[10px] font-mono tracking-wider text-slate-500"
+                  >
+                    {effectiveSystemLogs.map(log => (
+                      <div key={log.id} className="p-2.5 drop-shadow-md bg-indigo-950/20 rounded-lg border border-indigo-500/20">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className={`${log.colorClass} text-[10px] font-mono font-bold flex items-center gap-1.5`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_5px_currentColor]"></span>
+                            {log.source}
+                          </span>
+                          <span className="text-slate-500 text-[9px] font-mono tracking-wider">{language === 'zh' && log.timestampZh ? log.timestampZh : log.timestamp}</span>
+                        </div>
+                        <p className="text-indigo-200/80 text-[10px] leading-relaxed font-mono tracking-wider mt-1.5">
+                          {language === 'zh' && log.contentZh ? log.contentZh : log.content}
+                        </p>
+                      </div>
+                    ))}
+                  </ListStateView>
+                  <div ref={logsEndRef} />
+                </div>
+              </>
+            )}
           </div>
         )}
-
-      </div>
-
-      {/* SYSTEM MONITOR PANEL */}
-      <div className="relative flex flex-col pointer-events-auto">
-        {/* Dropdown-like Button */}
-        <div 
-          onClick={() => setIsMonitorOpen(!isMonitorOpen)}
-          className="h-10 backdrop-blur-xl border border-indigo-500/40 rounded-xl px-3 flex items-center justify-between bg-[#0a0a14]/40 hover:bg-indigo-950/40 transition-colors cursor-pointer group shadow-[0_4px_15px_rgba(0,0,0,0.5)] shrink-0"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-5 h-5 rounded flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
-              <Cpu className="w-4 h-4 text-indigo-400" />
-            </div>
-            <span className="text-indigo-400 text-[10px] font-bold tracking-widest font-mono group-hover:text-indigo-300 transition-colors uppercase">
-              {t('sidebarLeft.systemMonitor')}
-            </span>
-          </div>
-          <ChevronDown className={`w-3.5 h-3.5 text-indigo-600 group-hover:text-indigo-400 transition-colors transform ${isMonitorOpen ? 'rotate-180' : ''}`} />
-        </div>
-
-        {isMonitorOpen && (
-          <div className="mt-2 flex flex-col flex-1 min-h-0 max-h-[55vh] bg-[#0a0a0f]/20 backdrop-blur-md border border-indigo-500/20 rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
-             {/* System Chronicle content */}
-             <div className="flex-1 overflow-y-auto space-y-3 p-3 custom-scrollbar">
-              <ListStateView
-                loading={remoteSystemLogsLoading}
-                isEmpty={effectiveSystemLogs.length === 0}
-                loadingText={language === 'zh' ? '底层监控加载中...' : 'Loading monitor logs...'}
-                emptyText={language === 'zh' ? '暂无底层监控数据' : 'No monitor log data'}
-                className="px-1 py-2 text-[10px] font-mono tracking-wider text-slate-500"
-              >
-                {effectiveSystemLogs.map(log => (
-                  <div key={log.id} className="p-2.5 drop-shadow-md bg-indigo-950/20 rounded-lg border border-indigo-500/20">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className={`${log.colorClass} text-[10px] font-mono font-bold flex items-center gap-1.5`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_5px_currentColor]"></span>
-                        {log.source}
-                      </span>
-                      <span className="text-slate-500 text-[9px] font-mono tracking-wider">{language === 'zh' && log.timestampZh ? log.timestampZh : log.timestamp}</span>
-                    </div>
-                    <p className="text-indigo-200/80 text-[10px] leading-relaxed font-mono tracking-wider mt-1.5">
-                      {language === 'zh' && log.contentZh ? log.contentZh : log.content}
-                    </p>
-                  </div>
-                ))}
-              </ListStateView>
-              <div ref={logsEndRef} />
-            </div>
-
-            {/* SUDO Terminal */}
-            <div className="p-3 border-t border-indigo-500/20 shrink-0 bg-[#0a0a0f]/40 backdrop-blur-md">
-              <div className="flex items-center gap-2 bg-[#05050A]/60 rounded-lg px-3 py-2 border border-indigo-500/30 shadow-[0_4px_15px_rgba(0,0,0,0.3)] focus-within:border-indigo-500/60 focus-within:shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-all">
-                <span className="text-indigo-500 font-mono text-xs font-bold">$&gt;</span>
-                <input 
-                  type="text" 
-                  value={sudoCommand}
-                  onChange={(e) => setSudoCommand(e.target.value)}
-                  onKeyDown={handleSudoSubmit}
-                  placeholder={t('sidebarRight.sudoPlaceholder')} 
-                  className="bg-transparent border-none outline-none text-indigo-100 text-xs font-mono w-full placeholder:text-indigo-900/50"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
 
       </motion.aside>

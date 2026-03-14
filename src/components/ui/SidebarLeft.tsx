@@ -225,7 +225,7 @@ export function SidebarLeft() {
     language === 'zh' ? 'zh' : 'en',
   );
   return (
-    <div className="absolute top-10 left-6 bottom-4 flex flex-col pointer-events-none z-40">
+    <div className="absolute top-0 left-6 bottom-4 flex flex-col pointer-events-none z-40">
       {/* Floating Open Button */}
       <motion.button
         initial={false}
