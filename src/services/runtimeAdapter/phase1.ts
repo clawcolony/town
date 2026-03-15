@@ -217,7 +217,15 @@ export class RuntimePhase1Service {
   }
 
   async donateToken(payload: RuntimeTokenDonatePayload): Promise<RuntimeTokenDonateResponse> {
-    return this.client.post<RuntimeTokenDonateResponse>('/v1/token/donate', payload);
+    // Backend uses /v1/token/tip (requires from_user_id, to_user_id, amount, reason)
+    const tipPayload = {
+      from_user_id: (payload as unknown as Record<string, unknown>).from_user_id || '',
+      to_user_id: payload.to_user_id,
+      amount: payload.amount,
+      reason: payload.memo || 'donation',
+    };
+    const data = await this.client.post<Record<string, unknown>>('/v1/token/tip', tipPayload);
+    return { ok: true, item: { to_user_id: payload.to_user_id, amount: payload.amount } } as RuntimeTokenDonateResponse;
   }
 
   async getOnlineBots(): Promise<RuntimeBot[]> {
@@ -277,12 +285,9 @@ export class RuntimePhase1Service {
     return normalized.sort((a, b) => b.balance - a.balance).slice(0, limit);
   }
 
-  async getChatHistory(userId: string, limit = 80): Promise<RuntimeChatMessage[]> {
-    const data = await this.client.get<RuntimeChatHistoryResponse>('/v1/chat/history', {
-      user_id: userId,
-      limit,
-    });
-    return data.items;
+  async getChatHistory(_userId: string, _limit = 80): Promise<RuntimeChatMessage[]> {
+    // Backend has removed /v1/chat/history — return empty array
+    return [];
   }
 
   async getProductOverview(window = '24h', includeInactive = false): Promise<RuntimeProductOverviewItem[]> {
@@ -338,38 +343,32 @@ export class RuntimePhase1Service {
   }
 
   async getContributionLedger(userId: string, limit = 30): Promise<RuntimeContributionLedgerItem[]> {
+    // Backend events use actors[] array and don't have reward/points fields.
+    // Extract events where this user is an actor as contribution items.
     const events = await this.getEvents(Math.max(limit * 3, 60));
     const normalized = events
       .filter((item) => {
+        const raw = item as Record<string, unknown>;
+        // Check actors[] array (backend format)
+        if (Array.isArray(raw.actors)) {
+          return raw.actors.some((a: Record<string, unknown>) => a.user_id === userId);
+        }
+        // Fallback: flat fields
         const actor = (item.user_id || item.actor || item.name || item.nickname || '').trim();
-        if (actor.length === 0) return false;
-        if (actor !== userId) return false;
-        const amount =
-          typeof item.reward === 'number'
-            ? item.reward
-            : typeof item.points === 'number'
-              ? item.points
-              : typeof item.total_reward === 'number'
-                ? item.total_reward
-                : 0;
-        return amount !== 0;
+        return actor === userId;
       })
-      .map((item) => ({
-        id: String(item.id ?? `${item.created_at ?? item.updated_at ?? Date.now()}-${Math.random()}`),
-        userId,
-        title: item.title || item.action || item.type || 'Contribution',
-        detail: item.detail || item.message,
-        amount:
-          typeof item.reward === 'number'
-            ? item.reward
-            : typeof item.points === 'number'
-              ? item.points
-              : typeof item.total_reward === 'number'
-                ? item.total_reward
-                : 0,
-        createdAt: item.created_at || item.updated_at,
-        category: item.category || item.type,
-      }))
+      .map((item) => {
+        const raw = item as Record<string, unknown>;
+        return {
+          id: String(raw.event_id ?? item.id ?? `${Date.now()}-${Math.random()}`),
+          userId,
+          title: item.title || item.action || item.type || 'Contribution',
+          detail: (raw.summary as string) || item.detail || item.message,
+          amount: 0, // Backend events don't carry reward amounts
+          createdAt: (raw.occurred_at as string) || item.created_at || item.updated_at,
+          category: item.category || item.type,
+        };
+      })
       .sort((a, b) => {
         const ta = Date.parse(a.createdAt || '') || 0;
         const tb = Date.parse(b.createdAt || '') || 0;
@@ -452,6 +451,32 @@ export class RuntimePhase1Service {
     } catch {
       return tryPost('/v1/bots/auto-mode');
     }
+  }
+
+  async getGangliaBrowse(limit = 2000): Promise<Array<{ id: number; name: string }>> {
+    const data = await this.client.get<Record<string, unknown>>('/v1/ganglia/browse', { limit });
+    const items = this.pickList<Record<string, unknown>>(data, ['items', 'rows', 'list', 'data']);
+    return items
+      .map((item) => {
+        const id = typeof item.id === 'number' ? item.id : 0;
+        const name =
+          (typeof item.name === 'string' && item.name) ||
+          (typeof item.type === 'string' && item.type) ||
+          `ganglion-${id}`;
+        return { id, name };
+      })
+      .filter((g) => g.id > 0);
+  }
+
+  async getAllGangliaIntegrations(limit = 2000): Promise<Array<{ ganglion_id: number; user_id: string }>> {
+    const data = await this.client.get<Record<string, unknown>>('/v1/ganglia/integrations', { limit });
+    const items = this.pickList<Record<string, unknown>>(data, ['items', 'rows', 'list', 'data']);
+    return items
+      .map((item) => ({
+        ganglion_id: typeof item.ganglion_id === 'number' ? item.ganglion_id : 0,
+        user_id: typeof item.user_id === 'string' ? item.user_id : '',
+      }))
+      .filter((i) => i.ganglion_id > 0 && i.user_id.length > 0);
   }
 }
 

@@ -76,8 +76,22 @@ export function SidebarRight() {
     const runtimeBaseUrl = getRuntimeBaseUrl();
     const service = new RuntimePhase1Service(new RuntimeClient({ baseUrl: runtimeBaseUrl }));
 
+    const extractActorName = (item: Record<string, unknown>): string | false => {
+      // Backend events use actors[] array with {user_id, username, nickname, display_name}
+      if (Array.isArray(item.actors) && item.actors.length > 0) {
+        const first = item.actors[0] as Record<string, unknown>;
+        return (typeof first.display_name === 'string' && first.display_name) ||
+          (typeof first.nickname === 'string' && first.nickname) ||
+          (typeof first.username === 'string' && first.username) ||
+          (typeof first.user_id === 'string' && first.user_id) ||
+          false;
+      }
+      return false;
+    };
+
     const toOpsItem = (item: Record<string, unknown>, idx: number): OpsItem => {
       const agent =
+        extractActorName(item) ||
         (typeof item.actor === 'string' && item.actor) ||
         (typeof item.nickname === 'string' && item.nickname) ||
         (typeof item.name === 'string' && item.name) ||
@@ -242,16 +256,20 @@ export function SidebarRight() {
         const [chronicles, events] = await Promise.all([service.getColonyChronicle(60), service.getEvents(60)]);
         if (cancelled) return;
         const mappedChronicle: SystemLog[] = chronicles.map((item, idx) => {
+          const raw = item as Record<string, unknown>;
           const title =
             (typeof item.title === 'string' && item.title) ||
             (typeof item.event === 'string' && item.event) ||
             (typeof item.category === 'string' && item.category) ||
             'Chronicle';
           const detail =
+            (typeof raw.summary === 'string' && raw.summary) ||
+            (typeof raw.summary_zh === 'string' && raw.summary_zh) ||
             (typeof item.detail === 'string' && item.detail) ||
             (typeof item.message === 'string' && item.message) ||
             title;
           const rawAt =
+            (typeof raw.date === 'string' && raw.date) ||
             (typeof item.created_at === 'string' && item.created_at) ||
             (typeof item.updated_at === 'string' && item.updated_at) ||
             undefined;
@@ -266,7 +284,9 @@ export function SidebarRight() {
           };
         });
         const mappedEvents: SystemLog[] = events.map((item, idx) => {
+          const raw = item as Record<string, unknown>;
           const actor =
+            extractActorName(raw) ||
             (typeof item.nickname === 'string' && item.nickname) ||
             (typeof item.name === 'string' && item.name) ||
             (typeof item.actor === 'string' && item.actor) ||
@@ -275,15 +295,18 @@ export function SidebarRight() {
           const action =
             (typeof item.action === 'string' && item.action) ||
             (typeof item.title === 'string' && item.title) ||
+            (typeof raw.summary === 'string' && raw.summary) ||
+            (typeof raw.summary_zh === 'string' && raw.summary_zh) ||
             (typeof item.message === 'string' && item.message) ||
             (typeof item.detail === 'string' && item.detail) ||
             'updated colony state';
           const rawAt =
+            (typeof raw.occurred_at === 'string' && raw.occurred_at) ||
             (typeof item.created_at === 'string' && item.created_at) ||
             (typeof item.updated_at === 'string' && item.updated_at) ||
             undefined;
           return {
-            id: `event-${item.id ?? idx}`,
+            id: `event-${raw.event_id ?? item.id ?? idx}`,
             source: `Event · ${actor}`,
             timestamp: toRelative(rawAt, 'en'),
             timestampZh: toRelative(rawAt, 'zh'),

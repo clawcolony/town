@@ -15,7 +15,7 @@ import type {
 // ==========================================
 // CONFIGURATION
 // ==========================================
-export const USE_MOCK_API = true; // Set to false to use real API
+export const USE_MOCK_API = false; // Set to false to use real API
 
 // ==========================================
 // MOCK DATA

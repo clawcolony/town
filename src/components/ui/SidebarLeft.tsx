@@ -74,7 +74,11 @@ export function SidebarLeft() {
         const status = await service.getColonyStatus();
         if (!status || cancelled) return;
         const raw = status as Record<string, unknown>;
-        const population = (raw.population as Record<string, unknown> | undefined) ?? {};
+        // Backend returns flat structure: { population, state_count: {alive,dying,hibernated,dead},
+        //   total_token, treasury_token, uptime_seconds, tick_count, active_user_total_token, ... }
+        // Also support legacy nested structure for backward compatibility.
+        const stateCount = (raw.state_count as Record<string, unknown> | undefined) ?? {};
+        const population = (raw.population as Record<string, unknown> | undefined);
         const economy = (raw.economy as Record<string, unknown> | undefined) ?? {};
         const gangliaStack = (raw.ganglia_stack as Record<string, unknown> | undefined) ?? {};
         const tools = (raw.tools as Record<string, unknown> | undefined) ?? {};
@@ -91,6 +95,8 @@ export function SidebarLeft() {
                 ? status.duration_seconds
                 : null;
         const poolTokens =
+          getNum(raw.treasury_token) ??
+          getNum(raw.total_token) ??
           getNum(economy.pool_balance) ??
           (typeof status.total_tokens === 'number'
             ? status.total_tokens
@@ -98,22 +104,29 @@ export function SidebarLeft() {
               ? status.pool_tokens
               : typeof status.token_total === 'number'
                 ? status.token_total
-                : typeof status.glm_total === 'number'
-                  ? status.glm_total
-                  : typeof status.treasury_balance === 'number'
-                    ? status.treasury_balance
-                    : null);
+                : typeof status.treasury_balance === 'number'
+                  ? status.treasury_balance
+                  : null);
         setRuntimeUptimeSeconds(uptime);
         setRuntimePoolTokens(poolTokens);
         setRuntimeMedianAgentBalance(
-          getNum(economy.median_agent_balance) ?? getNum((raw as { median_agent_balance?: unknown }).median_agent_balance),
+          getNum(raw.active_user_total_token) ??
+          getNum(economy.median_agent_balance) ??
+          getNum((raw as { median_agent_balance?: unknown }).median_agent_balance),
         );
         setRuntimeAlivePopulation(
-          getNum(population.alive) ?? (typeof status.alive_population === 'number' ? status.alive_population : null),
+          getNum(stateCount.alive) ??
+          (typeof population === 'object' && population ? getNum(population.alive) : null) ??
+          (typeof status.alive_population === 'number' ? status.alive_population : null),
         );
-        setRuntimeHibernatingPopulation(getNum(population.hibernating));
+        setRuntimeHibernatingPopulation(
+          getNum(stateCount.hibernated) ??
+          (typeof population === 'object' && population ? getNum(population.hibernating) : null),
+        );
         setRuntimeTotalPopulation(
-          getNum(population.total_ever) ?? (typeof status.total_population === 'number' ? status.total_population : null),
+          (typeof raw.population === 'number' ? raw.population : null) ??
+          (typeof population === 'object' && population ? getNum(population.total_ever) : null) ??
+          (typeof status.total_population === 'number' ? status.total_population : null),
         );
         setRuntimeActiveBounties(typeof status.active_bounties === 'number' ? status.active_bounties : null);
         setRuntimeGangliaRows(

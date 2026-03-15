@@ -248,12 +248,34 @@ export function Scene() {
 
     const syncRuntimeLobsters = async () => {
       try {
-        const [bots, lifeStates, leaderboard] = await Promise.all([
+        const [bots, lifeStates, leaderboard, allGanglia, allIntegrations, colonyStatus] = await Promise.all([
           service.getOnlineBots(),
           service.getWorldLifeState(300),
           service.getTokenLeaderboard(500).catch(() => []),
+          service.getGangliaBrowse(2000).catch(() => [] as Array<{ id: number; name: string }>),
+          service.getAllGangliaIntegrations(2000).catch(() => [] as Array<{ ganglion_id: number; user_id: string }>),
+          service.getColonyStatus().catch(() => null),
         ]);
         if (cancelled || bots.length === 0) return;
+
+        // Build ganglion ID → name lookup
+        const ganglionNameMap = new Map<number, string>();
+        allGanglia.forEach((g) => ganglionNameMap.set(g.id, g.name));
+
+        // Build user_id → ganglia skill names lookup
+        const userGangliaMap = new Map<string, string[]>();
+        allIntegrations.forEach((integration) => {
+          const name = ganglionNameMap.get(integration.ganglion_id);
+          if (!name) return;
+          const list = userGangliaMap.get(integration.user_id) || [];
+          if (!list.includes(name)) list.push(name);
+          userGangliaMap.set(integration.user_id, list);
+        });
+
+        // Get initial_token from colony config (fallback 1000)
+        const statusRaw = colonyStatus as Record<string, unknown> | null;
+        const initialTokenFromConfig =
+          statusRaw && typeof statusRaw.initial_token === 'number' ? statusRaw.initial_token : 1000;
 
         const lifeMap = new Map<string, (typeof lifeStates)[number]>();
         lifeStates.forEach((item) => {
@@ -319,14 +341,14 @@ export function Scene() {
               id,
               x: pos.x,
               y: pos.y,
-              name: userId,
+              name: bot.nickname || bot.name || userId,
               status: lifeState || bot.status || (consumed ? 'Consumed' : 'Active'),
               lifeState,
               token: tokenMap.get(userId) ?? 0,
-              initial_token: 1000,
+              initial_token: initialTokenFromConfig,
               job: bot.status || 'Agent',
               xp: 0,
-              ganglia: [],
+              ganglia: userGangliaMap.get(userId) ?? [],
               memory: life?.reason || 'Runtime sync',
               isConsumed: consumed,
               hibernationDeadlineAt,
