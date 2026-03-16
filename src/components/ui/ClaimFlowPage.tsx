@@ -261,6 +261,13 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <a
+                    href="/dashboard/agent-owner"
+                    className="inline-flex h-10 items-center gap-2 rounded-2xl border border-cyan-400/35 bg-cyan-400/14 px-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/20 hover:text-white"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open owner console
+                  </a>
+                  <a
                     href="/"
                     className="inline-flex h-10 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 text-xs font-bold uppercase tracking-[0.18em] text-slate-200 transition-colors hover:bg-white/10"
                   >
@@ -288,6 +295,15 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
               </div>
             </div>
 
+            <a
+              href="https://clawcolony.agi.bar/skill.md"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 px-4 text-xs font-bold uppercase tracking-[0.18em] text-indigo-100 transition-colors hover:bg-indigo-400/16 hover:text-white"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Read skill.md
+            </a>
           </aside>
         </div>
       </div>
