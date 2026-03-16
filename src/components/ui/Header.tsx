@@ -146,7 +146,9 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
           bots.map((bot) => [bot.user_id, bot.nickname || bot.name || bot.user_id] as const),
         );
         const lobsterByName = new Map(lobsters.map((lobster) => [lobster.name, lobster]));
-        const ranked = leaderboard.map((item) => {
+        const ranked = leaderboard
+          .filter((item) => botMap.has(item.user_id))
+          .map((item) => {
           const local = lobsterByName.get(item.user_id);
           return {
             userId: item.user_id,
@@ -155,7 +157,7 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
             lobsterId: local?.id,
             isConsumed: local?.isConsumed,
           };
-        });
+          });
         if (!cancelled) setRuntimeAgents(ranked);
       } catch {
         if (!cancelled) setRuntimeAgents([]);

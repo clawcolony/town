@@ -7,8 +7,13 @@ export interface RuntimeClientOptions {
   defaultHeaders?: Record<string, string>;
 }
 
+const normalizeRuntimePath = (path: string) => {
+  if (path.startsWith('/v1/')) return `/api${path}`;
+  return path;
+};
+
 const buildUrl = (baseUrl: string, path: string, query?: Record<string, string | number | boolean | undefined>) => {
-  const url = new URL(path, baseUrl);
+  const url = new URL(normalizeRuntimePath(path), baseUrl);
   if (query) {
     Object.entries(query).forEach(([key, value]) => {
       if (value === undefined) return;
@@ -41,8 +46,9 @@ export class RuntimeClient {
     body?: unknown,
     query?: Record<string, string | number | boolean | undefined>,
   ): Promise<T> {
+    const normalizedPath = normalizeRuntimePath(path);
     if (USE_MOCK_API) {
-      console.log(`[Mock API] ${method} ${path}`, { query, body });
+      console.log(`[Mock API] ${method} ${normalizedPath}`, { query, body });
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
       
@@ -51,10 +57,10 @@ export class RuntimeClient {
         return { ok: true, item: body, data: body } as unknown as T;
       }
       
-      return getMockResponse(path, query) as T;
+      return getMockResponse(normalizedPath, query) as T;
     }
 
-    const endpoint = buildUrl(this.baseUrl, path, query);
+    const endpoint = buildUrl(this.baseUrl, normalizedPath, query);
     const response = await fetch(endpoint, {
       method,
       headers: {
@@ -71,10 +77,9 @@ export class RuntimeClient {
       } catch {
         payload = null;
       }
-      throw toAppError(response.status, path, payload ? { error: payload.error || '' } : null) as AppError;
+      throw toAppError(response.status, normalizedPath, payload ? { error: payload.error || '' } : null) as AppError;
     }
 
     return (await response.json()) as T;
   }
 }
-
