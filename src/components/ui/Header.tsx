@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, Database, Search, Eye, EyeOff, Users, Hammer, Check, X, Star, Copy, UserPlus2, ExternalLink } from 'lucide-react';
+import { Activity, Database, Search, Eye, EyeOff, Users, Hammer, Check, X, Star, Copy, ExternalLink } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import { useTranslation, useI18nStore } from '../../store/i18nStore';
 import { toast } from 'sonner';
@@ -52,8 +52,6 @@ export function Header() {
   const pendingUnlockParcelIds = useGameStore(state => state.pendingUnlockParcelIds);
   const commitBuildTiles = useGameStore(state => state.commitBuildTiles);
   const clearPendingBuildTiles = useGameStore(state => state.clearPendingBuildTiles);
-  const triggerTestNewLobsterOnboarding = useGameStore(state => state.triggerTestNewLobsterOnboarding);
-  const onboardingActive = useGameStore(state => Boolean(state.onboarding?.active));
   const showSidebarLeft = useGameStore(state => state.showSidebarLeft);
   const showSidebarRight = useGameStore(state => state.showSidebarRight);
   const showFloatingConsole = useGameStore(state => state.showFloatingConsole);
@@ -531,20 +529,6 @@ export function Header() {
           title={language === 'zh' ? '测试欢迎弹窗' : 'Test Welcome Overlay'}
         >
           <span className="text-[10px] font-bold tracking-wider">{language === 'zh' ? '欢迎测试' : 'Test Welcome'}</span>
-        </button>
-
-        {/* Test New Lobster Onboarding */}
-        <button
-          className={`bg-[#0a0a14]/40 backdrop-blur-xl border rounded-xl px-2.5 py-1.5 shadow-[0_4px_15px_rgba(0,0,0,0.5)] transition-colors flex items-center justify-center h-[30px] gap-1 ${
-            onboardingActive
-              ? 'border-amber-500/50 text-amber-300 bg-amber-950/30'
-              : 'border-indigo-500/40 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/40'
-          } ${showUI ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-          onClick={triggerTestNewLobsterOnboarding}
-          title={language === 'zh' ? '测试新龙虾加入引导' : 'Test New Lobster Onboarding'}
-        >
-          <UserPlus2 className="w-4 h-4" />
-          <span className="text-[10px] font-bold tracking-wider">{language === 'zh' ? '新龙虾测试' : 'Test Join'}</span>
         </button>
 
         {/* Build Mode Module */}
