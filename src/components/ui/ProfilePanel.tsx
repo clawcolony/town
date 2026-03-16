@@ -48,6 +48,7 @@ export function ProfilePanel() {
   const [autoLoading, setAutoLoading] = useState(false);
   const [autoSwitching, setAutoSwitching] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedGanglion, setExpandedGanglion] = useState<string | null>(null);
   const [donationAmount, setDonationAmount] = useState<string>('200');
   const [donating, setDonating] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -65,6 +66,7 @@ export function ProfilePanel() {
         setContributions([]);
         setAutoEnabled(null);
         setAutoUpdatedAt(null);
+        setExpandedGanglion(null);
         return;
       }
 
@@ -378,11 +380,37 @@ export function ProfilePanel() {
           <div className="mt-2 space-y-2">
             <div>
               <h4 className="text-[10px] text-slate-500 font-bold mb-1">{t('profilePanel.ganglia')}</h4>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar">
                 {lobster.ganglia.map(g => (
-                  <span key={g} className="text-[10px] bg-white/5 text-slate-300 px-1.5 py-0.5 rounded border border-white/10">{g}</span>
+                  <button
+                    key={g}
+                    type="button"
+                    className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                      expandedGanglion === g
+                        ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40'
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                    onClick={() => setExpandedGanglion(expandedGanglion === g ? null : g)}
+                  >
+                    {g}
+                  </button>
                 ))}
               </div>
+              {expandedGanglion && (
+                <div className="mt-1 p-2 bg-indigo-950/40 border border-indigo-500/30 rounded-md">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-indigo-200">{expandedGanglion}</span>
+                    <button type="button" className="text-slate-500 hover:text-white text-[10px]" onClick={() => setExpandedGanglion(null)}>
+                      <X size={10} />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    {language === 'zh'
+                      ? `此 Agent 已习得「${expandedGanglion}」能力节点，可在任务中自动调用。`
+                      : `This agent has acquired the "${expandedGanglion}" ganglion node, enabling it in tasks.`}
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <h4 className="text-[10px] text-slate-500 font-bold mb-1">{t('profilePanel.memory')}</h4>
