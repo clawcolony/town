@@ -22,6 +22,7 @@ export function Building({ data }: BuildingProps) {
   const [modelScene, setModelScene] = React.useState<THREE.Group | null>(null);
   const [modelFailed, setModelFailed] = React.useState(false);
   const [modelLoading, setModelLoading] = React.useState(false);
+  const [previewFailed, setPreviewFailed] = React.useState(false);
   const [constitutionVersion, setConstitutionVersion] = React.useState<number | null>(null);
   const [constitutionLoading, setConstitutionLoading] = React.useState(false);
   const [savingLayout, setSavingLayout] = React.useState(false);
@@ -45,12 +46,18 @@ export function Building({ data }: BuildingProps) {
   const modelScale = data.modelScale ?? 1;
   const Icon = data.icon;
   const modelUrl = data.modelFile ? `/assets/models/buildings/${data.modelFile}` : null;
+  const previewWebpUrl = `/assets/images/buildings/${data.id}.webp`;
+  const previewPngUrl = `/assets/images/buildings/${data.id}.png`;
   const isSelected = selectedBuildingId === data.id;
   const showTooltip = isHovered && !isBuildMode;
   const workingLobsters = React.useMemo(
     () => lobsters.filter((lobster) => Math.abs(lobster.x - data.x) <= 1 && Math.abs(lobster.y - data.y) <= 1),
     [data.x, data.y, lobsters],
   );
+
+  React.useEffect(() => {
+    setPreviewFailed(false);
+  }, [data.id]);
 
   React.useEffect(() => {
     if (!modelUrl) {
@@ -557,19 +564,44 @@ export function Building({ data }: BuildingProps) {
             
             {shouldRenderCard && (
               <div 
-                className={`flex flex-col items-center justify-center w-24 h-28 rounded-xl ${data.bgColor} border ${data.borderColor} ${data.shadowColor} backdrop-blur-md shadow-[0_4px_15px_rgba(0,0,0,0.5)] transition-all duration-300 ${showTooltip ? '-translate-y-4 scale-105' : ''} cursor-pointer pointer-events-auto`}
+                className={`relative flex flex-col items-center justify-center w-24 h-28 rounded-xl ${data.bgColor} border ${data.borderColor} ${data.shadowColor} backdrop-blur-md shadow-[0_4px_15px_rgba(0,0,0,0.5)] transition-all duration-300 ${showTooltip ? '-translate-y-4 scale-105' : ''} ${modelLoading ? 'animate-pulse' : ''} cursor-pointer pointer-events-auto`}
                 onClick={handleClick}
                 onPointerOver={isBuildMode ? undefined : (e) => { e.stopPropagation(); setIsHovered(true); }}
                 onPointerOut={isBuildMode ? undefined : (e) => { e.stopPropagation(); setIsHovered(false); }}
               >
-                <Icon className={`w-10 h-10 mb-2 ${data.textColor}`} />
-                <h3 className="text-white font-bold text-[10px] text-center leading-tight px-2">{data.subtitle}</h3>
+                {!previewFailed && (
+                  <picture className="absolute inset-0">
+                    <source srcSet={previewWebpUrl} type="image/webp" />
+                    <img
+                      src={previewPngUrl}
+                      alt={data.title}
+                      className="h-full w-full rounded-xl object-cover"
+                      draggable={false}
+                      onError={() => setPreviewFailed(true)}
+                    />
+                  </picture>
+                )}
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
+                {modelLoading && (
+                  <div className="absolute top-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-0.5 text-[8px] font-mono text-cyan-200">
+                    {language === 'zh' ? '2D 占位' : '2D Placeholder'}
+                  </div>
+                )}
+                {modelFailed && !modelLoading && (
+                  <div className="absolute top-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[8px] font-mono text-amber-200">
+                    {language === 'zh' ? '模型缺失' : 'Model Missing'}
+                  </div>
+                )}
+                <div className="relative z-10 flex h-full w-full flex-col items-center justify-end px-2 py-3">
+                  {previewFailed && <Icon className={`mb-2 w-10 h-10 ${data.textColor}`} />}
+                  <h3 className="text-white font-bold text-[10px] text-center leading-tight">{data.subtitle}</h3>
+                </div>
               </div>
             )}
 
             {!shouldRenderModel && modelLoading && (
               <div className="mt-2 text-[10px] text-slate-300 font-mono pointer-events-none">
-                Loading model...
+                {language === 'zh' ? '3D 模型加载中...' : 'Loading 3D model...'}
               </div>
             )}
           </div>
