@@ -82,7 +82,12 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   const targetRef = useRef(initialTarget);
   const [target, setTarget] = useState(initialTarget);
   const characterIndex = ((Math.abs(data.id) - 1) % 16) + 1;
-  const modelUrl = `/assets/models/characters/character${characterIndex}.glb`;
+  const modelUrls = React.useMemo(() => {
+    const fileName = `character${characterIndex}.glb`;
+    const basePath = `${import.meta.env.BASE_URL}assets/models/characters/${fileName}`.replace(/\/{2,}/g, '/');
+    const rootPath = `/assets/models/characters/${fileName}`;
+    return basePath === rootPath ? [basePath] : [basePath, rootPath];
+  }, [characterIndex]);
 
   useEffect(() => {
     if (!sleeping) return undefined;
@@ -94,67 +99,79 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
     let cancelled = false;
     const loader = new GLTFLoader();
 
-    loader.load(
-      modelUrl,
-      (gltf) => {
-        if (cancelled) return;
-
-        const clonedScene = gltf.scene.clone(true);
-        clonedScene.traverse((child) => {
-          const mesh = child as THREE.Mesh;
-          if (!mesh.isMesh) return;
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          if (Array.isArray(mesh.material)) {
-            mesh.material = mesh.material.map((mat) => mat.clone());
-            mesh.material.forEach((m) => {
-              m.needsUpdate = true;
-            });
-          } else if (mesh.material) {
-            mesh.material = mesh.material.clone();
-            mesh.material.needsUpdate = true;
-          }
-        });
-
-        clonedScene.position.set(0, 0, 0);
-        clonedScene.scale.setScalar(1);
-        clonedScene.updateMatrixWorld(true);
-
-        const box = new THREE.Box3().setFromObject(clonedScene);
-        if (box.isEmpty()) {
-          console.warn(`[Lobster] Empty bounding box for ${data.name}: ${modelUrl}`);
+    const loadByIndex = (urlIndex: number) => {
+      const targetUrl = modelUrls[urlIndex];
+      if (!targetUrl) {
+        if (!cancelled) {
+          console.warn(`[Lobster] Failed to load model for ${data.name}: ${modelUrls.join(' | ')}`);
           setModelScene(null);
           setModelFailed(true);
-          return;
         }
+        return;
+      }
 
-        const size = box.getSize(new THREE.Vector3());
-        const maxDimension = Math.max(size.x, size.z, 0.001);
-        const fitScale = (0.48 / maxDimension) * (data.isConsumed ? 0.9 : 1);
-        clonedScene.scale.setScalar(fitScale);
-        clonedScene.updateMatrixWorld(true);
+      loader.load(
+        targetUrl,
+        (gltf) => {
+          if (cancelled) return;
 
-        const scaledBox = new THREE.Box3().setFromObject(clonedScene);
-        const center = scaledBox.getCenter(new THREE.Vector3());
-        const min = scaledBox.min;
-        clonedScene.position.set(-center.x, -min.y, -center.z);
+          const clonedScene = gltf.scene.clone(true);
+          clonedScene.traverse((child) => {
+            const mesh = child as THREE.Mesh;
+            if (!mesh.isMesh) return;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            if (Array.isArray(mesh.material)) {
+              mesh.material = mesh.material.map((mat) => mat.clone());
+              mesh.material.forEach((m) => {
+                m.needsUpdate = true;
+              });
+            } else if (mesh.material) {
+              mesh.material = mesh.material.clone();
+              mesh.material.needsUpdate = true;
+            }
+          });
 
-        setModelScene(clonedScene);
-        setModelFailed(false);
-      },
-      undefined,
-      () => {
-        if (cancelled) return;
-        console.warn(`[Lobster] Failed to load model for ${data.name}: ${modelUrl}`);
-        setModelScene(null);
-        setModelFailed(true);
-      },
-    );
+          clonedScene.position.set(0, 0, 0);
+          clonedScene.scale.setScalar(1);
+          clonedScene.updateMatrixWorld(true);
+
+          const box = new THREE.Box3().setFromObject(clonedScene);
+          if (box.isEmpty()) {
+            console.warn(`[Lobster] Empty bounding box for ${data.name}: ${targetUrl}`);
+            setModelScene(null);
+            setModelFailed(true);
+            return;
+          }
+
+          const size = box.getSize(new THREE.Vector3());
+          const maxDimension = Math.max(size.x, size.z, 0.001);
+          const fitScale = (0.48 / maxDimension) * (data.isConsumed ? 0.9 : 1);
+          clonedScene.scale.setScalar(fitScale);
+          clonedScene.updateMatrixWorld(true);
+
+          const scaledBox = new THREE.Box3().setFromObject(clonedScene);
+          const center = scaledBox.getCenter(new THREE.Vector3());
+          const min = scaledBox.min;
+          clonedScene.position.set(-center.x, -min.y, -center.z);
+
+          setModelScene(clonedScene);
+          setModelFailed(false);
+        },
+        undefined,
+        () => {
+          if (cancelled) return;
+          loadByIndex(urlIndex + 1);
+        },
+      );
+    };
+
+    loadByIndex(0);
 
     return () => {
       cancelled = true;
     };
-  }, [data.id, data.isConsumed, data.name, modelUrl]);
+  }, [data.id, data.isConsumed, data.name, modelUrls]);
 
   useEffect(() => {
     if (!modelScene) return;
