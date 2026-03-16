@@ -147,6 +147,11 @@ export default defineConfig(({ mode }) => {
       // allowedHosts: ['saving-nail-columnists-got.trycloudflare.com'],
       hmr: process.env.DISABLE_HMR !== 'true',
       proxy: {
+        '/api/v1': {
+          target: runtimeProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
         '/v1': {
           target: runtimeProxyTarget,
           changeOrigin: true,

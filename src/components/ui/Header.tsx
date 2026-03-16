@@ -6,7 +6,11 @@ import { toast } from 'sonner';
 import { RuntimeClient, RuntimePhase1Service, getRuntimeBaseUrl } from '../../services/runtimeAdapter';
 import { ListStateView } from './ListStateView';
 
-export function Header() {
+interface HeaderProps {
+  onOpenJoinModal: () => void;
+}
+
+export function Header({ onOpenJoinModal }: HeaderProps) {
   const STAR_REPO = ((import.meta as any).env?.VITE_GITHUB_STAR_REPO as string | undefined) || 'agi-bar/clawcolony';
   const STAR_TARGET = Number((import.meta as any).env?.VITE_GITHUB_STAR_TARGET || 2000);
   const PROJECT_URL = ((import.meta as any).env?.VITE_GITHUB_PROJECT_URL as string | undefined) || `https://github.com/${STAR_REPO}`;

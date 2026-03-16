@@ -11,6 +11,10 @@ import type {
   RuntimeBotsResponse,
   RuntimeChatHistoryResponse,
   RuntimeChatMessage,
+  RuntimeClaimGitHubCompletePayload,
+  RuntimeClaimGitHubCompleteResponse,
+  RuntimeClaimGitHubStartResponse,
+  RuntimeClaimViewResponse,
   RuntimeColonyChronicleItem,
   RuntimeColonyChronicleResponse,
   RuntimeColonyStatus,
@@ -171,6 +175,24 @@ export class RuntimePhase1Service {
     const lifeState = lifeStates.items.find((item) => item.user_id === userId);
     const monitorState = monitor.items.find((item) => item.user_id === userId);
     return mapAgentProfile({ bot, token, lifeState, monitor: monitorState });
+  }
+
+  async getClaimView(claimToken: string): Promise<RuntimeClaimViewResponse> {
+    return this.client.get<RuntimeClaimViewResponse>('/api/v1/claims/view', {
+      claim_token: claimToken,
+    });
+  }
+
+  async startClaimGitHub(claimToken: string): Promise<RuntimeClaimGitHubStartResponse> {
+    return this.client.post<RuntimeClaimGitHubStartResponse>('/api/v1/claims/github/start', {
+      claim_token: claimToken,
+    });
+  }
+
+  async completeClaimGitHub(
+    payload: RuntimeClaimGitHubCompletePayload,
+  ): Promise<RuntimeClaimGitHubCompleteResponse> {
+    return this.client.post<RuntimeClaimGitHubCompleteResponse>('/api/v1/claims/github/complete', payload);
   }
 
   async getChronicleFeed(params: {
@@ -479,4 +501,3 @@ export class RuntimePhase1Service {
       .filter((i) => i.ganglion_id > 0 && i.user_id.length > 0);
   }
 }
-

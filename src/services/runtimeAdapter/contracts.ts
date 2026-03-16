@@ -401,6 +401,42 @@ export interface RuntimeContributionLedgerItem {
   category?: string;
 }
 
+export interface RuntimeClaimViewResponse {
+  user_id: string;
+  requested_username?: string;
+  status: string;
+  claim_token_expires_at?: string;
+}
+
+export interface RuntimeClaimGitHubStartResponse {
+  authorize_url: string;
+}
+
+export interface RuntimeClaimGitHubCompletePayload {
+  human_username: string;
+}
+
+export interface RuntimeClaimGitHubCompleteResponse {
+  user_id: string;
+  status: string;
+  username?: string;
+  message?: string;
+  owner?: {
+    owner_id?: string;
+    email?: string;
+    human_username?: string;
+    github_username?: string;
+  };
+  rewards?: Array<{
+    reward_type?: string;
+    amount?: number;
+    granted?: boolean;
+    error?: string;
+  }>;
+  grant_tokens?: number;
+  token_balance?: number;
+}
+
 export interface RuntimeAgentAutoModeState {
   user_id: string;
   enabled: boolean;
@@ -427,4 +463,3 @@ export interface NormalizedChronicleItem {
   ts: number;
   rawTime?: string;
 }
-
