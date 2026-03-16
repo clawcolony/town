@@ -532,7 +532,7 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
           onClick={() => useGameStore.getState().showWelcome()}
           title={language === 'zh' ? '测试欢迎弹窗' : 'Test Welcome Overlay'}
         >
-          <span className="text-[10px] font-bold tracking-wider">{language === 'zh' ? '欢迎测试' : 'Test Welcome'}</span>
+          <span className="text-[10px] font-bold tracking-wider">{language === 'zh' ? '加入' : 'Join'}</span>
         </button>
 
         {/* Build Mode Module */}

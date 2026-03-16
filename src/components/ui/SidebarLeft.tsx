@@ -271,8 +271,7 @@ export function SidebarLeft() {
       >
         <div className="mb-3 rounded-xl border border-indigo-500/30 bg-[#0a0a14]/70 p-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)] backdrop-blur-xl font-mono">
           <div className="mb-4 flex items-center justify-between border-b border-indigo-500/30 pb-2">
-            <h2 className="text-sm font-bold text-indigo-100 tracking-widest uppercase flex items-center gap-2">
-              <span>🦞</span>
+            <h2 className="text-indigo-400 text-[10px] font-bold tracking-widest font-mono uppercase">
               {language === 'zh' ? '创世纪现状' : 'Colony Status'}
             </h2>
             <div className="flex items-center gap-3">
