@@ -22,9 +22,11 @@ export function Building({ data }: BuildingProps) {
   const [modelScene, setModelScene] = React.useState<THREE.Group | null>(null);
   const [modelFailed, setModelFailed] = React.useState(false);
   const [modelLoading, setModelLoading] = React.useState(false);
+  const [previewFailed, setPreviewFailed] = React.useState(false);
   const [constitutionVersion, setConstitutionVersion] = React.useState<number | null>(null);
   const [constitutionLoading, setConstitutionLoading] = React.useState(false);
   const [savingLayout, setSavingLayout] = React.useState(false);
+  const [modelVisualHeight, setModelVisualHeight] = React.useState(1.2);
 
   const language = useI18nStore((state) => state.language);
   const isBuildMode = useGameStore((state) => state.isBuildMode);
@@ -44,6 +46,8 @@ export function Building({ data }: BuildingProps) {
   const modelScale = data.modelScale ?? 1;
   const Icon = data.icon;
   const modelUrl = data.modelFile ? `/assets/models/buildings/${data.modelFile}` : null;
+  const previewWebpUrl = `/assets/images/buildings/${data.id}.webp`;
+  const previewPngUrl = `/assets/images/buildings/${data.id}.png`;
   const isSelected = selectedBuildingId === data.id;
   const showTooltip = isHovered && !isBuildMode;
   const workingLobsters = React.useMemo(
@@ -52,10 +56,15 @@ export function Building({ data }: BuildingProps) {
   );
 
   React.useEffect(() => {
+    setPreviewFailed(false);
+  }, [data.id]);
+
+  React.useEffect(() => {
     if (!modelUrl) {
       setModelScene(null);
       setModelFailed(false);
       setModelLoading(false);
+      setModelVisualHeight(1.2);
       return;
     }
 
@@ -115,6 +124,7 @@ export function Building({ data }: BuildingProps) {
         const footprintDepth = Math.max(0.92, scaledSize.z);
         const center = scaledBox.getCenter(new THREE.Vector3());
         const min = scaledBox.min;
+        const visualHeight = Math.max(1, scaledSize.y + (data.modelYOffset ?? 0));
         clonedScene.position.set(
           -center.x,
           -min.y + (data.modelYOffset ?? 0),
@@ -123,6 +133,7 @@ export function Building({ data }: BuildingProps) {
 
         setModelScene(clonedScene);
         setFootprintSize({ width: footprintWidth, depth: footprintDepth });
+        setModelVisualHeight(visualHeight);
         setModelFailed(false);
         setModelLoading(false);
       },
@@ -132,6 +143,7 @@ export function Building({ data }: BuildingProps) {
         console.warn(`[Building] Failed to load model for ${data.id}: ${modelUrl}`);
         setModelScene(null);
         setFootprintSize({ width: 0.92, depth: 0.92 });
+        setModelVisualHeight(1.2);
         setModelFailed(true);
         setModelLoading(false);
       },
@@ -215,6 +227,11 @@ export function Building({ data }: BuildingProps) {
 
   const shouldRenderModel = !!modelUrl && !!modelScene && !modelFailed;
   const shouldRenderCard = !shouldRenderModel;
+  const panelAnchorY = React.useMemo(() => {
+    const baseHeight = extraBlocks * 0.5;
+    const contentHeight = shouldRenderModel ? modelVisualHeight : 1.2;
+    return baseHeight + contentHeight + 0.85;
+  }, [extraBlocks, modelVisualHeight, shouldRenderModel]);
   const baselineLayout = React.useMemo(() => {
     const baseline = BUILDINGS.find((building) => building.id === data.id);
     return {
@@ -319,219 +336,220 @@ export function Building({ data }: BuildingProps) {
         lockY={false}
         lockZ={false}
       >
-        <Html transform scale={0.5}>
-          <div className="flex flex-col items-center pointer-events-none select-none relative">
-            {!isBuildMode && isSelected && (
-              <div className="mb-8 -translate-y-10 pointer-events-auto">
-                <div className="relative w-[320px] rounded-2xl border border-cyan-400/40 bg-[#05070d]/88 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-                  <button
-                    className="absolute right-3 top-3 text-slate-400 transition-colors hover:text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedBuildingId(null);
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+        {!isBuildMode && isSelected && (
+          <Html transform scale={0.5} position={[0, panelAnchorY, 0]}>
+            <div className="pointer-events-auto">
+              <div className="relative w-[320px] rounded-2xl border border-cyan-400/40 bg-[#05070d]/88 p-4 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+                <button
+                  className="absolute right-3 top-3 text-slate-400 transition-colors hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedBuildingId(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
 
-                  <div className="pr-8">
-                    <div className="mb-1 text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                      {language === 'zh' ? '建筑面板' : 'Building Panel'}
-                    </div>
-                    <div className={`text-lg font-bold ${data.textColor}`}>{data.title}</div>
-                    <div className="mt-1 text-[11px] text-slate-300">{data.subtitle}</div>
-                    <div className="mt-2 text-[10px] text-slate-400">{data.label}</div>
+                <div className="pr-8">
+                  <div className="mb-1 text-[10px] uppercase tracking-[0.24em] text-slate-500">
+                    {language === 'zh' ? '建筑面板' : 'Building Panel'}
                   </div>
+                  <div className={`text-lg font-bold ${data.textColor}`}>{data.title}</div>
+                  <div className="mt-1 text-[11px] text-slate-300">{data.subtitle}</div>
+                  <div className="mt-2 text-[10px] text-slate-400">{data.label}</div>
+                </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-[10px] font-mono">
-                    <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2">
-                      <div className="text-slate-500">{language === 'zh' ? '坐标' : 'Coord'}</div>
-                      <div className="mt-1 text-cyan-300">{data.x}, {data.y}</div>
-                    </div>
-                    <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2">
-                      <div className="text-slate-500">{language === 'zh' ? '底座 Block' : 'Base Blocks'}</div>
-                      <div className="mt-1 text-emerald-300">{extraBlocks}</div>
-                    </div>
-                    <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2">
-                      <div className="text-slate-500">{language === 'zh' ? '缩放' : 'Scale'}</div>
-                      <div className="mt-1 text-fuchsia-300">{modelScale.toFixed(2)}x</div>
-                    </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-[10px] font-mono">
+                  <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2">
+                    <div className="text-slate-500">{language === 'zh' ? '坐标' : 'Coord'}</div>
+                    <div className="mt-1 text-cyan-300">{data.x}, {data.y}</div>
                   </div>
+                  <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2">
+                    <div className="text-slate-500">{language === 'zh' ? '底座 Block' : 'Base Blocks'}</div>
+                    <div className="mt-1 text-emerald-300">{extraBlocks}</div>
+                  </div>
+                  <div className="rounded-xl border border-white/8 bg-black/25 px-3 py-2">
+                    <div className="text-slate-500">{language === 'zh' ? '缩放' : 'Scale'}</div>
+                    <div className="mt-1 text-fuchsia-300">{modelScale.toFixed(2)}x</div>
+                  </div>
+                </div>
 
-                  <div className="mt-4 rounded-xl border border-white/8 bg-black/25 px-3 py-3">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-cyan-300">
-                        {language === 'zh' ? '临时布局' : 'Temp Layout'}
-                      </div>
-                      <button
-                        className={`flex items-center gap-1 text-[10px] transition-colors ${
-                          isDraftDirty && !savingLayout ? 'text-emerald-300 hover:text-emerald-200' : 'text-slate-500'
-                        }`}
-                        disabled={!isDraftDirty || savingLayout}
-                        onClick={handleSaveLayout}
-                      >
-                        {savingLayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                        {language === 'zh' ? '确认并写入 JSON' : 'Save to JSON'}
-                      </button>
-                      <button
-                        className="flex items-center gap-1 text-[10px] text-slate-400 transition-colors hover:text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          resetBuildingLayoutOverride(data.id);
-                        }}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        {language === 'zh' ? '撤回草稿' : 'Revert'}
-                      </button>
+                <div className="mt-4 rounded-xl border border-white/8 bg-black/25 px-3 py-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-cyan-300">
+                      {language === 'zh' ? '临时布局' : 'Temp Layout'}
                     </div>
-                    <div className="grid grid-cols-4 gap-2 text-[10px]">
-                      <div className="rounded-lg border border-white/6 bg-black/25 p-2">
-                        <div className="mb-2 text-slate-500">X</div>
-                        <div className="flex items-center justify-between gap-1">
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ x: data.x - 1 });
-                            }}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="text-cyan-200">{data.x}</span>
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ x: data.x + 1 });
-                            }}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
+                    <button
+                      className={`flex items-center gap-1 text-[10px] transition-colors ${
+                        isDraftDirty && !savingLayout ? 'text-emerald-300 hover:text-emerald-200' : 'text-slate-500'
+                      }`}
+                      disabled={!isDraftDirty || savingLayout}
+                      onClick={handleSaveLayout}
+                    >
+                      {savingLayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      {language === 'zh' ? '确认并写入 JSON' : 'Save to JSON'}
+                    </button>
+                    <button
+                      className="flex items-center gap-1 text-[10px] text-slate-400 transition-colors hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        resetBuildingLayoutOverride(data.id);
+                      }}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      {language === 'zh' ? '撤回草稿' : 'Revert'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-[10px]">
+                    <div className="rounded-lg border border-white/6 bg-black/25 p-2">
+                      <div className="mb-2 text-slate-500">X</div>
+                      <div className="flex items-center justify-between gap-1">
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ x: data.x - 1 });
+                          }}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="text-cyan-200">{data.x}</span>
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ x: data.x + 1 });
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
                       </div>
-                      <div className="rounded-lg border border-white/6 bg-black/25 p-2">
-                        <div className="mb-2 text-slate-500">Y</div>
-                        <div className="flex items-center justify-between gap-1">
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ y: data.y - 1 });
-                            }}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="text-cyan-200">{data.y}</span>
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ y: data.y + 1 });
-                            }}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
+                    </div>
+                    <div className="rounded-lg border border-white/6 bg-black/25 p-2">
+                      <div className="mb-2 text-slate-500">Y</div>
+                      <div className="flex items-center justify-between gap-1">
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ y: data.y - 1 });
+                          }}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="text-cyan-200">{data.y}</span>
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ y: data.y + 1 });
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
                       </div>
-                      <div className="rounded-lg border border-white/6 bg-black/25 p-2">
-                        <div className="mb-2 text-slate-500">{language === 'zh' ? '高' : 'Height'}</div>
-                        <div className="flex items-center justify-between gap-1">
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ extraBlocks: Math.max(0, extraBlocks - 1) });
-                            }}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="text-cyan-200">{extraBlocks}</span>
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ extraBlocks: extraBlocks + 1 });
-                            }}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
+                    </div>
+                    <div className="rounded-lg border border-white/6 bg-black/25 p-2">
+                      <div className="mb-2 text-slate-500">{language === 'zh' ? '高' : 'Height'}</div>
+                      <div className="flex items-center justify-between gap-1">
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ extraBlocks: Math.max(0, extraBlocks - 1) });
+                          }}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="text-cyan-200">{extraBlocks}</span>
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ extraBlocks: extraBlocks + 1 });
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
                       </div>
-                      <div className="rounded-lg border border-white/6 bg-black/25 p-2">
-                        <div className="mb-2 text-slate-500">{language === 'zh' ? '缩放' : 'Scale'}</div>
-                        <div className="flex items-center justify-between gap-1">
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ modelScale: Number(Math.max(0.25, modelScale - 0.1).toFixed(2)) });
-                            }}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="text-cyan-200">{modelScale.toFixed(2)}</span>
-                          <button
-                            className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateLayout({ modelScale: Number((modelScale + 0.1).toFixed(2)) });
-                            }}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
+                    </div>
+                    <div className="rounded-lg border border-white/6 bg-black/25 p-2">
+                      <div className="mb-2 text-slate-500">{language === 'zh' ? '缩放' : 'Scale'}</div>
+                      <div className="flex items-center justify-between gap-1">
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ modelScale: Number(Math.max(0.25, modelScale - 0.1).toFixed(2)) });
+                          }}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="text-cyan-200">{modelScale.toFixed(2)}</span>
+                        <button
+                          className="rounded border border-white/10 p-1 text-slate-300 hover:bg-white/8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateLayout({ modelScale: Number((modelScale + 0.1).toFixed(2)) });
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="mt-4 rounded-xl border border-white/8 bg-black/25 px-3 py-3">
-                    <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-cyan-300">
-                      <Users className="h-3.5 w-3.5" />
-                      {language === 'zh' ? '驻场单元' : 'On Site'}
+                <div className="mt-4 rounded-xl border border-white/8 bg-black/25 px-3 py-3">
+                  <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-cyan-300">
+                    <Users className="h-3.5 w-3.5" />
+                    {language === 'zh' ? '驻场单元' : 'On Site'}
+                  </div>
+                  {workingLobsters.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {workingLobsters.map((lobster) => (
+                        <span
+                          key={lobster.id}
+                          className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-1 text-[10px] text-cyan-100"
+                        >
+                          {lobster.name}
+                        </span>
+                      ))}
                     </div>
-                    {workingLobsters.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {workingLobsters.map((lobster) => (
-                          <span
-                            key={lobster.id}
-                            className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-1 text-[10px] text-cyan-100"
-                          >
-                            {lobster.name}
-                          </span>
-                        ))}
+                  ) : (
+                    <div className="text-[10px] text-slate-500">
+                      {language === 'zh' ? '当前附近没有 Claw。' : 'No nearby claws right now.'}
+                    </div>
+                  )}
+                </div>
+
+                {data.id === 'codex-tower' && (
+                  <div className="mt-3 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/8 px-3 py-3 text-[10px] font-mono">
+                    <div className="text-fuchsia-300">
+                      {language === 'zh' ? '宪法索引' : 'Constitution Index'}
+                    </div>
+                    {constitutionLoading ? (
+                      <div className="mt-2 flex items-center gap-2 text-slate-300">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {language === 'zh' ? '加载中...' : 'Loading...'}
                       </div>
                     ) : (
-                      <div className="text-[10px] text-slate-500">
-                        {language === 'zh' ? '当前附近没有 Claw。' : 'No nearby claws right now.'}
+                      <div className="mt-2 text-slate-200">
+                        {constitutionVersion !== null
+                          ? `${language === 'zh' ? '版本' : 'Version'} ${constitutionVersion}`
+                          : (language === 'zh' ? '运行时未返回宪法版本' : 'No runtime constitution version')}
                       </div>
                     )}
                   </div>
+                )}
 
-                  {data.id === 'codex-tower' && (
-                    <div className="mt-3 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/8 px-3 py-3 text-[10px] font-mono">
-                      <div className="text-fuchsia-300">
-                        {language === 'zh' ? '宪法索引' : 'Constitution Index'}
-                      </div>
-                      {constitutionLoading ? (
-                        <div className="mt-2 flex items-center gap-2 text-slate-300">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          {language === 'zh' ? '加载中...' : 'Loading...'}
-                        </div>
-                      ) : (
-                        <div className="mt-2 text-slate-200">
-                          {constitutionVersion !== null
-                            ? `${language === 'zh' ? '版本' : 'Version'} ${constitutionVersion}`
-                            : (language === 'zh' ? '运行时未返回宪法版本' : 'No runtime constitution version')}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="absolute left-1/2 top-full h-4 w-4 -translate-x-1/2 -translate-y-2 rotate-45 border-b border-r border-cyan-400/40 bg-[#05070d]/88" />
-                </div>
+                <div className="absolute left-1/2 top-full h-4 w-4 -translate-x-1/2 -translate-y-2 rotate-45 border-b border-r border-cyan-400/40 bg-[#05070d]/88" />
               </div>
-            )}
-
+            </div>
+          </Html>
+        )}
+        <Html transform scale={0.5}>
+          <div className="flex flex-col items-center pointer-events-none select-none relative">
             <div className={`transition-all duration-300 ${showTooltip ? 'opacity-100 -translate-y-6' : 'opacity-0 translate-y-0'}`}>
               {renderARTooltip()}
             </div>
@@ -546,19 +564,44 @@ export function Building({ data }: BuildingProps) {
             
             {shouldRenderCard && (
               <div 
-                className={`flex flex-col items-center justify-center w-24 h-28 rounded-xl ${data.bgColor} border ${data.borderColor} ${data.shadowColor} backdrop-blur-md shadow-[0_4px_15px_rgba(0,0,0,0.5)] transition-all duration-300 ${showTooltip ? '-translate-y-4 scale-105' : ''} cursor-pointer pointer-events-auto`}
+                className={`relative flex flex-col items-center justify-center w-24 h-28 rounded-xl ${data.bgColor} border ${data.borderColor} ${data.shadowColor} backdrop-blur-md shadow-[0_4px_15px_rgba(0,0,0,0.5)] transition-all duration-300 ${showTooltip ? '-translate-y-4 scale-105' : ''} ${modelLoading ? 'animate-pulse' : ''} cursor-pointer pointer-events-auto`}
                 onClick={handleClick}
                 onPointerOver={isBuildMode ? undefined : (e) => { e.stopPropagation(); setIsHovered(true); }}
                 onPointerOut={isBuildMode ? undefined : (e) => { e.stopPropagation(); setIsHovered(false); }}
               >
-                <Icon className={`w-10 h-10 mb-2 ${data.textColor}`} />
-                <h3 className="text-white font-bold text-[10px] text-center leading-tight px-2">{data.subtitle}</h3>
+                {!previewFailed && (
+                  <picture className="absolute inset-0">
+                    <source srcSet={previewWebpUrl} type="image/webp" />
+                    <img
+                      src={previewPngUrl}
+                      alt={data.title}
+                      className="h-full w-full rounded-xl object-cover"
+                      draggable={false}
+                      onError={() => setPreviewFailed(true)}
+                    />
+                  </picture>
+                )}
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
+                {modelLoading && (
+                  <div className="absolute top-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-0.5 text-[8px] font-mono text-cyan-200">
+                    {language === 'zh' ? '2D 占位' : '2D Placeholder'}
+                  </div>
+                )}
+                {modelFailed && !modelLoading && (
+                  <div className="absolute top-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[8px] font-mono text-amber-200">
+                    {language === 'zh' ? '模型缺失' : 'Model Missing'}
+                  </div>
+                )}
+                <div className="relative z-10 flex h-full w-full flex-col items-center justify-end px-2 py-3">
+                  {previewFailed && <Icon className={`mb-2 w-10 h-10 ${data.textColor}`} />}
+                  <h3 className="text-white font-bold text-[10px] text-center leading-tight">{data.subtitle}</h3>
+                </div>
               </div>
             )}
 
             {!shouldRenderModel && modelLoading && (
               <div className="mt-2 text-[10px] text-slate-300 font-mono pointer-events-none">
-                Loading model...
+                {language === 'zh' ? '3D 模型加载中...' : 'Loading 3D model...'}
               </div>
             )}
           </div>

@@ -12,10 +12,11 @@ import { SidebarRight } from './components/ui/SidebarRight';
 import { FloatingConsole } from './components/ui/FloatingConsole';
 import { EventAlerts } from './components/ui/EventAlerts';
 import { ProfilePanel } from './components/ui/ProfilePanel';
-import { BuildingPanel } from './components/ui/BuildingPanel';
 import { SettingsPanel } from './components/ui/SettingsPanel';
 import { AssetLoaderOverlay } from './components/ui/AssetLoaderOverlay';
 import { NewLobsterOnboardingOverlay } from './components/ui/NewLobsterOnboardingOverlay';
+import { WelcomeOverlay } from './components/ui/WelcomeOverlay';
+import { BlockHoverHud } from './components/ui/BlockHoverHud';
 import { JoinSkillModal } from './components/ui/JoinSkillModal';
 import { ClaimFlowPage } from './components/ui/ClaimFlowPage';
 import { useGameStore } from './store/gameStore';
@@ -49,7 +50,6 @@ export default function App() {
   const showUI = useGameStore((state) => state.showUI);
   const setShowUI = useGameStore((state) => state.setShowUI);
   const showLobsterPanel = useGameStore((state) => state.showLobsterPanel);
-  const showBuildingPanel = useGameStore((state) => state.showBuildingPanel);
   const triggerCameraReset = useGameStore((state) => state.triggerCameraReset);
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -134,13 +134,12 @@ export default function App() {
           {showLobsterPanel && (
             <ProfilePanel />
           )}
-          {showBuildingPanel && (
-            <BuildingPanel />
-          )}
         </div>
       </div>
 
       {/* 4. Overlays (Settings) */}
+      <BlockHoverHud />
+
       {showSettings && (
         <SettingsPanel 
           onClose={() => setShowSettings(false)}
@@ -154,6 +153,7 @@ export default function App() {
       )}
 
       <NewLobsterOnboardingOverlay />
+      <WelcomeOverlay />
       <JoinSkillModal open={joinModalOpen} onClose={() => setJoinModalOpen(false)} />
     </div>
   );

@@ -278,38 +278,14 @@ export const LOBSTERS: LobsterData[] = [
 
 export const BASE_GRID_SIZE = 8;
 export const PARCEL_SIZE = 1;
-const VISIBLE_LOCKED_TILE_RINGS = 1;
+const INITIAL_UNLOCK_SIZE = 16;
+const VISIBLE_LOCKED_TILE_RINGS = 0;
 const MAX_EXPANSION_TILE_RINGS = 8;
-const CONTENT_MIN_X = Math.min(
-  ...BUILDINGS.flatMap((building) => [building.x]),
-  ...LOBSTERS.flatMap((lobster) => [lobster.x]),
-);
-const CONTENT_MIN_Y = Math.min(
-  ...BUILDINGS.flatMap((building) => [building.y]),
-  ...LOBSTERS.flatMap((lobster) => [lobster.y]),
-);
-const MAX_CONTENT_COORD = Math.max(
-  ...BUILDINGS.flatMap((building) => [building.x, building.y]),
-  ...LOBSTERS.flatMap((lobster) => [lobster.x, lobster.y]),
-);
-const CONTENT_MAX_X = Math.max(
-  ...BUILDINGS.flatMap((building) => [building.x]),
-  ...LOBSTERS.flatMap((lobster) => [lobster.x]),
-);
-const CONTENT_MAX_Y = Math.max(
-  ...BUILDINGS.flatMap((building) => [building.y]),
-  ...LOBSTERS.flatMap((lobster) => [lobster.y]),
-);
 
 const GRID_WORLD_CENTER = (BASE_GRID_SIZE - 1) / 2;
-const SYMMETRIC_CONTENT_RADIUS = Math.max(
-  GRID_WORLD_CENTER - CONTENT_MIN_X,
-  CONTENT_MAX_X - GRID_WORLD_CENTER,
-  GRID_WORLD_CENTER - CONTENT_MIN_Y,
-  CONTENT_MAX_Y - GRID_WORLD_CENTER,
-);
-const INNER_UNLOCK_MIN_COORD = Math.floor(GRID_WORLD_CENTER - SYMMETRIC_CONTENT_RADIUS);
-const INNER_UNLOCK_MAX_COORD = Math.ceil(GRID_WORLD_CENTER + SYMMETRIC_CONTENT_RADIUS);
+const HALF_INITIAL_UNLOCK_SPAN = (INITIAL_UNLOCK_SIZE - 1) / 2;
+const INNER_UNLOCK_MIN_COORD = Math.floor(GRID_WORLD_CENTER - HALF_INITIAL_UNLOCK_SPAN);
+const INNER_UNLOCK_MAX_COORD = Math.ceil(GRID_WORLD_CENTER + HALF_INITIAL_UNLOCK_SPAN);
 
 export const GRID_MIN_COORD = INNER_UNLOCK_MIN_COORD - MAX_EXPANSION_TILE_RINGS;
 export const GRID_MAX_COORD = INNER_UNLOCK_MAX_COORD + MAX_EXPANSION_TILE_RINGS;

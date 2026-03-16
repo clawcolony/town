@@ -49,7 +49,7 @@ export function SidebarRight() {
   }>>([]);
   const [opsLoading, setOpsLoading] = useState(true);
   const [commsLoading, setCommsLoading] = useState(true);
-  const [activeFeed, setActiveFeed] = useState<'comms' | 'monitor'>('comms');
+  const [activeFeed, setActiveFeed] = useState<'comms' | 'monitor'>('monitor');
   const [isFeedOpen, setIsFeedOpen] = useState(true);
   const commsEndRef = useRef<HTMLDivElement>(null);
 
@@ -375,17 +375,6 @@ export function SidebarRight() {
             <div className="p-2 border-b border-indigo-500/20 flex items-center gap-2 bg-[#0a0a14]/40">
               <button
                 type="button"
-                onClick={() => setActiveFeed('comms')}
-                className={`flex-1 h-8 rounded-md border text-[10px] font-mono tracking-wider transition-colors ${
-                  activeFeed === 'comms'
-                    ? 'border-indigo-400/70 bg-indigo-500/20 text-indigo-200'
-                    : 'border-indigo-500/30 bg-transparent text-indigo-400/70 hover:bg-indigo-500/10'
-                }`}
-              >
-                {t('sidebarRight.comms')}
-              </button>
-              <button
-                type="button"
                 onClick={() => setActiveFeed('monitor')}
                 className={`flex-1 h-8 rounded-md border text-[10px] font-mono tracking-wider transition-colors ${
                   activeFeed === 'monitor'
@@ -394,6 +383,17 @@ export function SidebarRight() {
                 }`}
               >
                 {t('sidebarLeft.systemMonitor')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFeed('comms')}
+                className={`flex-1 h-8 rounded-md border text-[10px] font-mono tracking-wider transition-colors ${
+                  activeFeed === 'comms'
+                    ? 'border-indigo-400/70 bg-indigo-500/20 text-indigo-200'
+                    : 'border-indigo-500/30 bg-transparent text-indigo-400/70 hover:bg-indigo-500/10'
+                }`}
+              >
+                {t('sidebarRight.comms')}
               </button>
             </div>
 

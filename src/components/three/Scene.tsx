@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Environment, OrbitControls, PerspectiveCamera, ContactShadows, GizmoHelper, GizmoViewcube } from '@react-three/drei';
+import { Environment, OrbitControls, PerspectiveCamera, ContactShadows, GizmoHelper, GizmoViewcube, Billboard, Html } from '@react-three/drei';
 import { GridSystem } from './GridSystem';
 import { Building } from './Building';
 import { Lobster } from './Lobster';
@@ -21,6 +21,17 @@ import * as THREE from 'three';
 import { RuntimeClient, RuntimePhase1Service, getRuntimeBaseUrl } from '../../services/runtimeAdapter';
 import { toast } from 'sonner';
 
+interface BlockRegion {
+  id: string;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  worldX: number;
+  worldZ: number;
+  kind: 'core' | 'construction';
+}
+
 export function Scene() {
   const lobsters = useGameStore(state => state.lobsters);
   const updateLobsters = useGameStore(state => state.updateLobsters);
@@ -36,6 +47,7 @@ export function Scene() {
   const triggerCameraReset = useGameStore(state => state.triggerCameraReset);
   const customAssets = useGameStore(state => state.customAssets);
   const moveCustomAssetToPending = useGameStore(state => state.moveCustomAssetToPending);
+  const setHoverBlockInfo = useGameStore(state => state.setHoverBlockInfo);
   const language = useI18nStore(state => state.language);
   const unlockedParcelIdSet = React.useMemo(() => new Set(unlockedParcelIds), [unlockedParcelIds]);
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -44,6 +56,7 @@ export function Scene() {
   const lastCameraLogAtRef = useRef<number>(0);
   const centerSpotTarget = React.useMemo(() => new THREE.Object3D(), []);
   const [cameraPreset, setCameraPreset] = React.useState<CameraConfigEntry>(() => readCachedCameraConfig() ?? DEFAULT_CAMERA_CONFIG);
+  const [hoveredTile, setHoveredTile] = React.useState<{ x: number; y: number } | null>(null);
   const buildings = React.useMemo(
     () =>
       BUILDINGS.map((building) => {
@@ -97,6 +110,112 @@ export function Scene() {
   const initialCameraFov = activeCameraPreset.fov;
   const contactShadowScale = Math.max(15, sceneSpan * 1.2);
   const contactShadowFar = Math.max(10, sceneSpan);
+  const subPlotTileCount = 8;
+  const subPlotTileOffsets = React.useMemo(
+    () =>
+      Array.from({ length: subPlotTileCount * subPlotTileCount }, (_, index) => {
+        const row = Math.floor(index / subPlotTileCount);
+        const col = index % subPlotTileCount;
+        return {
+          row,
+          col,
+          xOffset: col - (subPlotTileCount - 1) / 2,
+          zOffset: row - (subPlotTileCount - 1) / 2,
+        };
+      }),
+    [subPlotTileCount],
+  );
+  const coreBlocks = React.useMemo<BlockRegion[]>(
+    () => {
+      const coreMinX = visibleTerrainBounds.minX;
+      const coreMinY = visibleTerrainBounds.minY;
+      const coreWestMinX = coreMinX;
+      const coreEastMinX = coreMinX + subPlotTileCount;
+      const coreSouthMinY = coreMinY;
+      const coreNorthMinY = coreMinY + subPlotTileCount;
+      const buildCoreBlock = (id: string, minX: number, minY: number): BlockRegion => ({
+        id,
+        minX,
+        maxX: minX + subPlotTileCount - 1,
+        minY,
+        maxY: minY + subPlotTileCount - 1,
+        worldX: gridCoordToWorld(minX + (subPlotTileCount - 1) / 2),
+        worldZ: gridCoordToWorld(minY + (subPlotTileCount - 1) / 2),
+        kind: 'core',
+      });
+      return [
+        buildCoreBlock('core-sw', coreWestMinX, coreSouthMinY),
+        buildCoreBlock('core-se', coreEastMinX, coreSouthMinY),
+        buildCoreBlock('core-nw', coreWestMinX, coreNorthMinY),
+        buildCoreBlock('core-ne', coreEastMinX, coreNorthMinY),
+      ];
+    },
+    [subPlotTileCount, visibleTerrainBounds.minX, visibleTerrainBounds.minY],
+  );
+  const underConstructionPlots = React.useMemo<BlockRegion[]>(
+    () => {
+      const coreMinX = visibleTerrainBounds.minX;
+      const coreMinY = visibleTerrainBounds.minY;
+      const blocks: BlockRegion[] = [];
+      for (let blockRow = -1; blockRow <= 2; blockRow += 1) {
+        for (let blockCol = -1; blockCol <= 2; blockCol += 1) {
+          const isCoreCol = blockCol >= 0 && blockCol <= 1;
+          const isCoreRow = blockRow >= 0 && blockRow <= 1;
+          if (isCoreCol && isCoreRow) continue;
+
+          const minX = coreMinX + blockCol * subPlotTileCount;
+          const minY = coreMinY + blockRow * subPlotTileCount;
+          blocks.push({
+            id: `uc-r${blockRow + 2}-c${blockCol + 2}`,
+            minX,
+            maxX: minX + subPlotTileCount - 1,
+            minY,
+            maxY: minY + subPlotTileCount - 1,
+            worldX: gridCoordToWorld(minX + (subPlotTileCount - 1) / 2),
+            worldZ: gridCoordToWorld(minY + (subPlotTileCount - 1) / 2),
+            kind: 'construction',
+          });
+        }
+      }
+      return blocks;
+    },
+    [subPlotTileCount, visibleTerrainBounds.minX, visibleTerrainBounds.minY],
+  );
+  const numberedBlocks = React.useMemo(
+    () =>
+      [...coreBlocks, ...underConstructionPlots].map((block, index) => ({
+        ...block,
+        label: `B${String(index + 1).padStart(2, '0')}`,
+      })),
+    [coreBlocks, underConstructionPlots],
+  );
+  const currentHoverInfo = React.useMemo(() => {
+    if (!hoveredTile) return null;
+    const block = numberedBlocks.find(
+      (item) =>
+        hoveredTile.x >= item.minX &&
+        hoveredTile.x <= item.maxX &&
+        hoveredTile.y >= item.minY &&
+        hoveredTile.y <= item.maxY,
+    );
+    if (!block) return null;
+    const localCol = hoveredTile.x - block.minX;
+    const localRow = hoveredTile.y - block.minY;
+    const tileNo = localRow * subPlotTileCount + localCol + 1;
+    if (tileNo < 1 || tileNo > subPlotTileCount * subPlotTileCount) return null;
+    return {
+      blockLabel: block.label,
+      tileNo,
+      x: hoveredTile.x,
+      y: hoveredTile.y,
+    };
+  }, [hoveredTile, numberedBlocks, subPlotTileCount]);
+  useEffect(() => {
+    setHoverBlockInfo(currentHoverInfo);
+    return () => {
+      setHoverBlockInfo(null);
+    };
+  }, [currentHoverInfo, setHoverBlockInfo]);
   const lobsterBlockedTileSet = React.useMemo(() => {
     const blocked = new Set<string>();
     builtTiles.forEach((tile) => blocked.add(`${tile.x},${tile.y}`));
@@ -517,7 +636,43 @@ export function Scene() {
       />
       
       <group rotation={[0, Math.PI, 0]} position={[0, -1.5, 0]}>
-        <GridSystem />
+        <GridSystem onHoverTileChange={setHoveredTile} />
+        {underConstructionPlots.map((plot) => {
+          return (
+            <group key={plot.id} position={[plot.worldX, 0, plot.worldZ]} onPointerLeave={() => setHoveredTile(null)}>
+              {subPlotTileOffsets.map((tile) => (
+                <mesh
+                  key={`${plot.id}-${tile.row}-${tile.col}`}
+                  position={[tile.xOffset, 0.25, tile.zOffset]}
+                  onPointerOver={(e) => {
+                    e.stopPropagation();
+                    setHoveredTile({ x: plot.minX + tile.col, y: plot.minY + tile.row });
+                  }}
+                >
+                  <boxGeometry args={[1 - TILE_GAP, 0.5, 1 - TILE_GAP]} />
+                  <meshLambertMaterial color="#2c2b31" flatShading />
+                </mesh>
+              ))}
+              <lineSegments position={[0, 0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <edgesGeometry args={[new THREE.PlaneGeometry(subPlotTileCount, subPlotTileCount)]} />
+                <lineBasicMaterial color="#67e8f9" opacity={0.92} transparent />
+              </lineSegments>
+              <Billboard follow lockX={false} lockY={false} lockZ={false}>
+                <Html transform scale={0.52} position={[0, 1.1, 0]}>
+                  <div className="pointer-events-none select-none rounded-lg border border-amber-400/50 bg-black/70 px-3 py-2 text-center shadow-[0_6px_18px_rgba(0,0,0,0.45)]">
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-amber-300">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+                      {language === 'zh' ? '正在施工中...' : 'Under Construction...'}
+                    </div>
+                    <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-amber-500/20">
+                      <div className="h-full w-2/3 rounded-full bg-amber-300/80 animate-pulse" />
+                    </div>
+                  </div>
+                </Html>
+              </Billboard>
+            </group>
+          );
+        })}
         
         {buildings.map(b => <Building key={b.id} data={b} />)}
         {customAssets.map(a => (
@@ -551,7 +706,7 @@ export function Scene() {
         alignment="bottom-left"
         margin={[60, 180]}
       >
-        <group rotation={[0, Math.PI, 0]} onDoubleClick={(e) => { e.stopPropagation(); triggerCameraReset(); }}>
+        {/* <group rotation={[0, Math.PI, 0]} onDoubleClick={(e) => { e.stopPropagation(); triggerCameraReset(); }}>
           <GizmoViewcube 
             faces={language === 'zh' ? ['右', '左', '上', '下', '前', '后'] : ['Right', 'Left', 'Top', 'Bottom', 'Front', 'Back']}
             opacity={0.8}
@@ -560,7 +715,7 @@ export function Scene() {
             textColor="#f8fafc"
             hoverColor="#6366f1"
           />
-        </group>
+        </group> */}
       </GizmoHelper>
     </>
   );

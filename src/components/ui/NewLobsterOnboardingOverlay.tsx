@@ -18,7 +18,7 @@ export function NewLobsterOnboardingOverlay() {
 
   const title = language === 'zh' ? '新龙虾入群三步引导' : 'New Lobster 3-Step Onboarding';
   const subtitle = language === 'zh'
-    ? '未完成全部步骤前，无法加入龙虾殖民地。'
+    ? '未完成全部步骤前，无法加入龙虾创世纪。'
     : 'Colony access stays locked until all steps are completed.';
 
   return (
@@ -128,7 +128,7 @@ export function NewLobsterOnboardingOverlay() {
 
         <div className="mt-4 text-[10px] text-slate-400 font-mono">
           {allDone
-            ? (language === 'zh' ? '校验通过，正在加入殖民地...' : 'Validation passed, joining colony...')
+            ? (language === 'zh' ? '校验通过，正在加入创世纪...' : 'Validation passed, joining colony...')
             : (language === 'zh' ? '锁定中：请按顺序完成 1 → 2 → 3。' : 'Locked: finish steps in order 1 → 2 → 3.')}
         </div>
       </div>

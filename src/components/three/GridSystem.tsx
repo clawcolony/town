@@ -15,6 +15,10 @@ import { Tile } from './Tile';
 import { getBrushFootprintTiles, instanceIdToTile, isSameTile } from './gridInteraction';
 import { toast } from 'sonner';
 
+interface GridSystemProps {
+  onHoverTileChange?: (tile: { x: number; y: number } | null) => void;
+}
+
 const grassColor = new THREE.Color('#2c2b31');
 const dirtColor = new THREE.Color('#35343d');
 const roadColor = new THREE.Color('#3d3c45');
@@ -35,7 +39,7 @@ const getTerrainColor = (
   return grassColor;
 };
 
-export function GridSystem() {
+export function GridSystem({ onHoverTileChange }: GridSystemProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const dragActiveRef = useRef(false);
@@ -339,6 +343,17 @@ export function GridSystem() {
     lastStagedTileKeyRef.current = null;
   }, []);
 
+  const updateHoveredTile = useCallback(
+    (next: { x: number; y: number } | null) => {
+      setHoveredTile((current) => {
+        if (isSameTile(current, next)) return current;
+        onHoverTileChange?.(next);
+        return next;
+      });
+    },
+    [onHoverTileChange],
+  );
+
   useEffect(() => {
     const handlePointerUp = () => {
       clearDragState();
@@ -350,11 +365,8 @@ export function GridSystem() {
   }, [clearDragState]);
 
   const handleTileHover = useCallback((x: number, y: number) => {
-    setHoveredTile((current) => {
-      if (current?.x === x && current?.y === y) return current;
-      return { x, y };
-    });
-  }, []);
+    updateHoveredTile({ x, y });
+  }, [updateHoveredTile]);
 
   const handleTileBuildStart = useCallback((x: number, y: number) => {
     dragActiveRef.current = true;
@@ -376,9 +388,7 @@ export function GridSystem() {
         visibleTerrainBounds.minX,
         visibleTerrainBounds.minY,
       );
-      if (!isSameTile(hoveredTile, next)) {
-        setHoveredTile(next);
-      }
+      updateHoveredTile(next);
       if (isBuildMode && dragActiveRef.current && (e.buttons ?? 0) === 1) {
         stageBuildAtTile(next.x, next.y);
       }
@@ -386,7 +396,7 @@ export function GridSystem() {
   };
 
   const handlePointerLeaveGroup = () => {
-    setHoveredTile(null);
+    updateHoveredTile(null);
     clearDragState();
   };
 

@@ -46,6 +46,13 @@ export interface NewLobsterOnboardingState {
   rewardGithubFork: number;
 }
 
+export interface HoverBlockInfo {
+  blockLabel: string;
+  tileNo: number;
+  x: number;
+  y: number;
+}
+
 interface GameState {
   // --- High-frequency Core States ---
   tick: number;
@@ -92,6 +99,8 @@ interface GameState {
   systemLogs: SystemLog[];
   publicComms: PublicComm[];
   onboarding: NewLobsterOnboardingState | null;
+  hasSeenWelcome: boolean;
+  hoverBlockInfo: HoverBlockInfo | null;
 
   // --- Actions ---
   setTick: (tick: number) => void;
@@ -100,6 +109,9 @@ interface GameState {
   triggerTestNewLobsterOnboarding: () => void;
   completeOnboardingStep: (step: 'github' | 'star' | 'fork') => void;
   dismissOnboarding: () => void;
+  dismissWelcome: () => void;
+  showWelcome: () => void;
+  setHoverBlockInfo: (info: HoverBlockInfo | null) => void;
   
   setBuildMode: (isBuildMode: boolean) => void;
   updateBuildBrushSize: (width: number, length: number) => void;
@@ -251,6 +263,8 @@ export const useGameStore = create<GameState>()(
     { id: 'c3', sender: 'ShrimpY', avatarClass: 'bg-green-500/20 text-green-400 border-green-500/50', timestamp: '12m ago', timestampZh: '12分钟前', content: 'I am taking the Data Parsing bounty. Back off!', contentZh: '我要接这个数据解析的悬赏了。都让开！' },
   ],
   onboarding: null,
+  hasSeenWelcome: false,
+  hoverBlockInfo: null,
 
   setTick: (tick) => set({ tick }),
   setGStack: (gStack) => set({ gStack }),
@@ -314,7 +328,7 @@ export const useGameStore = create<GameState>()(
       timestamp: Date.now(),
       type: 'system',
       message: `${flow.lobsterName} completed onboarding and joined the colony.`,
-      messageZh: `${flow.lobsterName} 完成新手引导并加入殖民地。`,
+      messageZh: `${flow.lobsterName} 完成新手引导并加入创世纪。`,
     };
 
     return {
@@ -329,6 +343,9 @@ export const useGameStore = create<GameState>()(
     };
   }),
   dismissOnboarding: () => set({ onboarding: null }),
+  dismissWelcome: () => set({ hasSeenWelcome: true }),
+  showWelcome: () => set({ hasSeenWelcome: false }),
+  setHoverBlockInfo: (info) => set({ hoverBlockInfo: info }),
   
   setBuildMode: (isBuildMode) => set({ isBuildMode, pendingBuildTiles: [], pendingAsset: null }),
   updateBuildBrushSize: (width, length) => set({
@@ -550,6 +567,7 @@ export const useGameStore = create<GameState>()(
       partialize: (state) => ({
         committedBuildingLayoutOverrides: state.committedBuildingLayoutOverrides,
         useMockApi: state.useMockApi,
+        hasSeenWelcome: state.hasSeenWelcome,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<GameState> | undefined;
@@ -562,6 +580,7 @@ export const useGameStore = create<GameState>()(
         return {
           ...currentState,
           useMockApi: persisted?.useMockApi ?? currentState.useMockApi,
+          hasSeenWelcome: persisted?.hasSeenWelcome ?? currentState.hasSeenWelcome,
           committedBuildingLayoutOverrides,
           buildingLayoutOverrides: committedBuildingLayoutOverrides,
         };
