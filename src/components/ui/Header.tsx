@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bug, Activity, Database, Search, Eye, EyeOff, Users, Hammer, Check, X, Star, Copy, UserPlus2 } from 'lucide-react';
+import { Bug, Activity, Database, Search, Eye, EyeOff, Users, Hammer, Check, X, Star, Copy, UserPlus2, ExternalLink } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import { useTranslation, useI18nStore } from '../../store/i18nStore';
 import { toast } from 'sonner';
@@ -407,6 +407,15 @@ export function Header() {
                   ? (language === 'zh' ? '复制中...' : 'Copying...')
                   : (language === 'zh' ? '复制分享文案' : 'Copy Share Text')}
               </button>
+              <a
+                href={PROJECT_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="mt-2 w-full h-8 flex items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 transition-colors text-[10px] font-bold tracking-wider uppercase"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                {language === 'zh' ? '打开 GitHub' : 'Open GitHub'}
+              </a>
             </div>
           </div>
         </div>

@@ -551,7 +551,7 @@ export function Scene() {
         alignment="bottom-left"
         margin={[60, 180]}
       >
-        <group rotation={[0, Math.PI, 0]} onDoubleClick={(e) => { e.stopPropagation(); triggerCameraReset(); }}>
+        {/* <group rotation={[0, Math.PI, 0]} onDoubleClick={(e) => { e.stopPropagation(); triggerCameraReset(); }}>
           <GizmoViewcube 
             faces={language === 'zh' ? ['右', '左', '上', '下', '前', '后'] : ['Right', 'Left', 'Top', 'Bottom', 'Front', 'Back']}
             opacity={0.8}
@@ -560,7 +560,7 @@ export function Scene() {
             textColor="#f8fafc"
             hoverColor="#6366f1"
           />
-        </group>
+        </group> */}
       </GizmoHelper>
     </>
   );
