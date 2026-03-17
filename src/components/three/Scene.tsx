@@ -21,6 +21,11 @@ import * as THREE from 'three';
 import { RuntimeClient, RuntimePhase1Service, getRuntimeBaseUrl } from '../../services/runtimeAdapter';
 import { toast } from 'sonner';
 
+const INITIAL_FULL_DETAIL_LOBSTERS = 18;
+const FULL_DETAIL_BATCH_SIZE = 12;
+const FULL_DETAIL_BATCH_INTERVAL_MS = 140;
+const MAX_FULL_DETAIL_LOBSTERS = 72;
+
 interface BlockRegion {
   id: string;
   minX: number;
@@ -57,6 +62,9 @@ export function Scene() {
   const centerSpotTarget = React.useMemo(() => new THREE.Object3D(), []);
   const [cameraPreset, setCameraPreset] = React.useState<CameraConfigEntry>(() => readCachedCameraConfig() ?? DEFAULT_CAMERA_CONFIG);
   const [hoveredTile, setHoveredTile] = React.useState<{ x: number; y: number } | null>(null);
+  const [fullDetailLobsterCount, setFullDetailLobsterCount] = React.useState(() =>
+    Math.min(INITIAL_FULL_DETAIL_LOBSTERS, MAX_FULL_DETAIL_LOBSTERS),
+  );
   const buildings = React.useMemo(
     () =>
       BUILDINGS.map((building) => {
@@ -359,6 +367,24 @@ export function Scene() {
 
     lobsterPosMapRef.current = nextPositions;
   }, [availableLobsterTiles, lobsters]);
+
+  useEffect(() => {
+    const targetFullCount = Math.min(lobsters.length, MAX_FULL_DETAIL_LOBSTERS);
+    const initialCount = Math.min(targetFullCount, INITIAL_FULL_DETAIL_LOBSTERS);
+    setFullDetailLobsterCount(initialCount);
+    if (initialCount >= targetFullCount) return;
+
+    const timer = window.setInterval(() => {
+      setFullDetailLobsterCount((prev) => {
+        if (prev >= targetFullCount) return prev;
+        return Math.min(targetFullCount, prev + FULL_DETAIL_BATCH_SIZE);
+      });
+    }, FULL_DETAIL_BATCH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [lobsters.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -680,12 +706,13 @@ export function Scene() {
             <CustomAssetModel data={a} onSelect={moveCustomAssetToPending} />
           </React.Suspense>
         ))}
-        {lobsters.map(l => (
+        {lobsters.map((l, index) => (
           <Lobster
             key={l.id}
             data={l}
             allowedTiles={availableLobsterTiles}
             onSelect={() => setSelectedLobsterId(l.id)}
+            renderModel={index < fullDetailLobsterCount}
           />
         ))}
       </group>

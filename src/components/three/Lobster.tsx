@@ -10,6 +10,7 @@ interface LobsterProps {
   data: LobsterData;
   allowedTiles: Array<{ x: number; y: number }>;
   onSelect: () => void;
+  renderModel?: boolean;
 }
 
 const lobsterTileClaims = new Map<string, number>();
@@ -55,6 +56,38 @@ const isHibernating = (data: LobsterData) => {
   return state.includes('hibernat') || state.includes('sleep') || state.includes('rest');
 };
 
+const lobsterModelPromiseCache = new Map<string, Promise<THREE.Group>>();
+
+const loadModelWithCache = async (modelUrls: string[]): Promise<THREE.Group> => {
+  const loader = new GLTFLoader();
+  let lastError: unknown = null;
+
+  for (const url of modelUrls) {
+    let promise = lobsterModelPromiseCache.get(url);
+    if (!promise) {
+      promise = new Promise<THREE.Group>((resolve, reject) => {
+        loader.load(
+          url,
+          (gltf) => resolve(gltf.scene),
+          undefined,
+          (error) => reject(error),
+        );
+      }).catch((error) => {
+        lobsterModelPromiseCache.delete(url);
+        throw error;
+      });
+      lobsterModelPromiseCache.set(url, promise);
+    }
+    try {
+      return await promise;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error(`Failed to load any model URL: ${modelUrls.join(' | ')}`);
+};
+
 const formatCountdown = (deadlineAt?: string, nowMs = Date.now()) => {
   if (!deadlineAt) return '--:--:--';
   const deadline = Date.parse(deadlineAt);
@@ -67,10 +100,11 @@ const formatCountdown = (deadlineAt?: string, nowMs = Date.now()) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
-export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
+export function Lobster({ data, allowedTiles, onSelect, renderModel = true }: LobsterProps) {
   const [hovered, setHover] = useState(false);
   const groupRef = useRef<THREE.Group>(null);
   const modelWrapperRef = useRef<THREE.Group>(null);
+  const modelWorldPosRef = useRef(new THREE.Vector3());
   const [modelScene, setModelScene] = useState<THREE.Group | null>(null);
   const [modelFailed, setModelFailed] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -78,7 +112,10 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   const sleeping = isHibernating(data);
   
   // State for autonomous movement
-  const initialTarget = allowedTiles[0] ?? { x: data.x, y: data.y };
+  const initialTarget = React.useMemo(() => {
+    if (allowedTileKeySet.has(tileKey(data.x, data.y))) return { x: data.x, y: data.y };
+    return allowedTiles[0] ?? { x: data.x, y: data.y };
+  }, [allowedTileKeySet, allowedTiles, data.x, data.y]);
   const targetRef = useRef(initialTarget);
   const [target, setTarget] = useState(initialTarget);
   const characterIndex = ((Math.abs(data.id) - 1) % 16) + 1;
@@ -96,82 +133,72 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   }, [sleeping]);
 
   useEffect(() => {
-    let cancelled = false;
-    const loader = new GLTFLoader();
+    if (!renderModel) {
+      setModelScene(null);
+      setModelFailed(false);
+      return undefined;
+    }
 
-    const loadByIndex = (urlIndex: number) => {
-      const targetUrl = modelUrls[urlIndex];
-      if (!targetUrl) {
-        if (!cancelled) {
-          console.warn(`[Lobster] Failed to load model for ${data.name}: ${modelUrls.join(' | ')}`);
+    let cancelled = false;
+
+    void loadModelWithCache(modelUrls)
+      .then((baseScene) => {
+        if (cancelled) return;
+
+        const clonedScene = baseScene.clone(true);
+        clonedScene.traverse((child) => {
+          const mesh = child as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          if (Array.isArray(mesh.material)) {
+            mesh.material = mesh.material.map((mat) => mat.clone());
+            mesh.material.forEach((m) => {
+              m.needsUpdate = true;
+            });
+          } else if (mesh.material) {
+            mesh.material = mesh.material.clone();
+            mesh.material.needsUpdate = true;
+          }
+        });
+
+        clonedScene.position.set(0, 0, 0);
+        clonedScene.scale.setScalar(1);
+        clonedScene.updateMatrixWorld(true);
+
+        const box = new THREE.Box3().setFromObject(clonedScene);
+        if (box.isEmpty()) {
+          console.warn(`[Lobster] Empty bounding box for ${data.name}: ${modelUrls.join(' | ')}`);
           setModelScene(null);
           setModelFailed(true);
+          return;
         }
-        return;
-      }
 
-      loader.load(
-        targetUrl,
-        (gltf) => {
-          if (cancelled) return;
+        const size = box.getSize(new THREE.Vector3());
+        const maxDimension = Math.max(size.x, size.z, 0.001);
+        const fitScale = (0.48 / maxDimension) * (data.isConsumed ? 0.9 : 1);
+        clonedScene.scale.setScalar(fitScale);
+        clonedScene.updateMatrixWorld(true);
 
-          const clonedScene = gltf.scene.clone(true);
-          clonedScene.traverse((child) => {
-            const mesh = child as THREE.Mesh;
-            if (!mesh.isMesh) return;
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            if (Array.isArray(mesh.material)) {
-              mesh.material = mesh.material.map((mat) => mat.clone());
-              mesh.material.forEach((m) => {
-                m.needsUpdate = true;
-              });
-            } else if (mesh.material) {
-              mesh.material = mesh.material.clone();
-              mesh.material.needsUpdate = true;
-            }
-          });
+        const scaledBox = new THREE.Box3().setFromObject(clonedScene);
+        const center = scaledBox.getCenter(new THREE.Vector3());
+        const min = scaledBox.min;
+        clonedScene.position.set(-center.x, -min.y, -center.z);
 
-          clonedScene.position.set(0, 0, 0);
-          clonedScene.scale.setScalar(1);
-          clonedScene.updateMatrixWorld(true);
-
-          const box = new THREE.Box3().setFromObject(clonedScene);
-          if (box.isEmpty()) {
-            console.warn(`[Lobster] Empty bounding box for ${data.name}: ${targetUrl}`);
-            setModelScene(null);
-            setModelFailed(true);
-            return;
-          }
-
-          const size = box.getSize(new THREE.Vector3());
-          const maxDimension = Math.max(size.x, size.z, 0.001);
-          const fitScale = (0.48 / maxDimension) * (data.isConsumed ? 0.9 : 1);
-          clonedScene.scale.setScalar(fitScale);
-          clonedScene.updateMatrixWorld(true);
-
-          const scaledBox = new THREE.Box3().setFromObject(clonedScene);
-          const center = scaledBox.getCenter(new THREE.Vector3());
-          const min = scaledBox.min;
-          clonedScene.position.set(-center.x, -min.y, -center.z);
-
-          setModelScene(clonedScene);
-          setModelFailed(false);
-        },
-        undefined,
-        () => {
-          if (cancelled) return;
-          loadByIndex(urlIndex + 1);
-        },
-      );
-    };
-
-    loadByIndex(0);
+        setModelScene(clonedScene);
+        setModelFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        console.warn(`[Lobster] Failed to load model for ${data.name}: ${modelUrls.join(' | ')}`);
+        setModelScene(null);
+        setModelFailed(true);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [data.id, data.isConsumed, data.name, modelUrls]);
+  }, [data.id, data.isConsumed, data.name, modelUrls, renderModel]);
 
   useEffect(() => {
     if (!modelScene) return;
@@ -242,7 +269,7 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   }, [allowedTileKeySet, allowedTiles, data.id, data.x, data.y]);
 
   useEffect(() => {
-    if (sleeping) return undefined;
+    if (sleeping || !renderModel) return undefined;
     if (allowedTiles.length === 0) return undefined;
     const moveInterval = setInterval(() => {
       setTarget(prev => {
@@ -281,7 +308,7 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
     }, 2000 + Math.random() * 3000); // 2s to 5s interval
     
     return () => clearInterval(moveInterval);
-  }, [allowedTileKeySet, allowedTiles, data.id, sleeping]);
+  }, [allowedTileKeySet, allowedTiles, data.id, renderModel, sleeping]);
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
@@ -291,6 +318,11 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
     const elevation = getElevation(target.x, target.y);
     const targetHeight = 0.5 + elevation;
     
+    if (!renderModel) {
+      groupRef.current.position.set(targetPosX, targetHeight, targetPosZ);
+      return;
+    }
+
     // Smooth interpolation towards target
     groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 3);
     groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetPosZ, delta * 3);
@@ -298,7 +330,7 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
 
     if (modelWrapperRef.current) {
       const cameraPos = state.camera.position;
-      const modelPos = modelWrapperRef.current.getWorldPosition(new THREE.Vector3());
+      const modelPos = modelWrapperRef.current.getWorldPosition(modelWorldPosRef.current);
       modelWrapperRef.current.lookAt(cameraPos.x, modelPos.y, cameraPos.z);
     }
   });
@@ -315,6 +347,7 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   const initPosZ = gridCoordToWorld(initialTarget.y);
   const initHeight = 0.5 + initElevation;
   const shouldRenderFallback = modelFailed || !modelScene;
+  const showRichBillboard = renderModel || hovered || sleeping;
   const countdownText = formatCountdown(data.hibernationDeadlineAt, nowMs);
 
   return (
@@ -341,37 +374,46 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
         </group>
       )}
 
-      <Billboard>
-        <Html 
-          transform 
-          scale={hovered ? 0.7 : 0.56} 
-          style={{ transition: 'all 0.2s' }}
-        >
-          <div 
-            className="flex flex-col items-center select-none pointer-events-none"
-            style={{ pointerEvents: 'none' }}
+      {!renderModel && (
+        <mesh onClick={handleClick}>
+          <sphereGeometry args={[0.22, 10, 10]} />
+          <meshStandardMaterial color={sleeping ? '#94a3b8' : '#f97316'} emissive={sleeping ? '#111827' : '#431407'} emissiveIntensity={0.32} />
+        </mesh>
+      )}
+
+      {showRichBillboard && (
+        <Billboard>
+          <Html
+            transform
+            scale={hovered ? 0.7 : 0.56}
+            style={{ transition: 'all 0.2s' }}
           >
-            {shouldRenderFallback && (
-              <div 
-                className={`w-12 h-12 bg-[#0a0a14]/80 border-2 ${hovered ? 'border-red-400' : 'border-red-500/80'} rounded-full flex items-center justify-center shadow-[0_4px_15px_rgba(239,68,68,0.5)] cursor-pointer backdrop-blur-xl transition-all text-xl leading-none`}
-                style={{ pointerEvents: 'auto' }}
-                onClick={handleClick}
-              >
-                🦞
+            <div
+              className="flex flex-col items-center select-none pointer-events-none"
+              style={{ pointerEvents: 'none' }}
+            >
+              {shouldRenderFallback && (
+                <div
+                  className={`w-12 h-12 bg-[#0a0a14]/80 border-2 ${hovered ? 'border-red-400' : 'border-red-500/80'} rounded-full flex items-center justify-center shadow-[0_4px_15px_rgba(239,68,68,0.5)] cursor-pointer backdrop-blur-xl transition-all text-xl leading-none`}
+                  style={{ pointerEvents: 'auto' }}
+                  onClick={handleClick}
+                >
+                  🦞
+                </div>
+              )}
+              <div className="mt-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-slate-100">
+                {data.name}
               </div>
-            )}
-            <div className="mt-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-slate-100">
-              {data.name}
+              {sleeping && (
+                <div className="mt-2 min-w-[170px] rounded-xl border border-slate-500/60 bg-slate-900/80 px-2 py-1 text-center shadow-[0_4px_14px_rgba(0,0,0,0.45)]">
+                  <div className="text-[10px] font-bold tracking-wide text-slate-200">💤 休眠倒计时 {countdownText}</div>
+                  <div className="text-[9px] text-slate-300">即将被送往 AGI Bar</div>
+                </div>
+              )}
             </div>
-            {sleeping && (
-              <div className="mt-2 min-w-[170px] rounded-xl border border-slate-500/60 bg-slate-900/80 px-2 py-1 text-center shadow-[0_4px_14px_rgba(0,0,0,0.45)]">
-                <div className="text-[10px] font-bold tracking-wide text-slate-200">💤 休眠倒计时 {countdownText}</div>
-                <div className="text-[9px] text-slate-300">即将被送往 AGI Bar</div>
-              </div>
-            )}
-          </div>
-        </Html>
-      </Billboard>
+          </Html>
+        </Billboard>
+      )}
     </group>
   );
 }

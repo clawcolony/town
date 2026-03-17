@@ -478,14 +478,41 @@ export class RuntimePhase1Service {
   async getGangliaBrowse(limit = 2000): Promise<Array<{ id: number; name: string }>> {
     const data = await this.client.get<Record<string, unknown>>('/api/v1/ganglia/browse', { limit });
     const items = this.pickList<Record<string, unknown>>(data, ['items', 'rows', 'list', 'data']);
+    const pickString = (...values: unknown[]): string | undefined => {
+      for (const value of values) {
+        if (typeof value !== 'string') continue;
+        const trimmed = value.trim();
+        if (trimmed.length > 0) return trimmed;
+      }
+      return undefined;
+    };
+    const pickNumber = (...values: unknown[]): number => {
+      for (const value of values) {
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        if (typeof value === 'string' && value.trim().length > 0) {
+          const parsed = Number(value);
+          if (Number.isFinite(parsed)) return parsed;
+        }
+      }
+      return 0;
+    };
     return items
       .map((item) => {
-        const id = typeof item.id === 'number' ? item.id : 0;
+        const id = pickNumber(item.id, item.ganglion_id);
         const name =
-          (typeof item.name === 'string' && item.name) ||
-          (typeof item.type === 'string' && item.type) ||
+          pickString(item.name, item.title, item.ganglion_name) ||
+          pickString(item.type, item.category, item.kind) ||
           `ganglion-${id}`;
-        return { id, name };
+        return {
+          id,
+          name,
+          type: pickString(item.type, item.category, item.kind),
+          description: pickString(item.description, item.summary, item.detail),
+          content: pickString(item.content, item.body),
+          implementation: pickString(item.implementation),
+          updated_at: pickString(item.updated_at, item.modified_at, item.last_updated_at),
+          created_at: pickString(item.created_at),
+        };
       })
       .filter((g) => g.id > 0);
   }
