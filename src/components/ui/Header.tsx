@@ -10,6 +10,8 @@ interface HeaderProps {
   onOpenJoinModal: () => void;
 }
 
+const DISPLAY_TICK_START_MS = Date.parse('2026-03-16T10:00:00Z');
+
 export function Header({ onOpenJoinModal }: HeaderProps) {
   const STAR_REPO = ((import.meta as any).env?.VITE_GITHUB_STAR_REPO as string | undefined) || 'agi-bar/clawcolony';
   const STAR_TARGET = Number((import.meta as any).env?.VITE_GITHUB_STAR_TARGET || 2000);
@@ -37,6 +39,11 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${mins}m`;
     return `${mins}m`;
+  };
+
+  const getDisplayTickUptimeSeconds = (): number => {
+    const delta = Math.floor((Date.now() - DISPLAY_TICK_START_MS) / 1000);
+    return delta > 0 ? delta : 0;
   };
 
   const { t } = useTranslation();
@@ -73,7 +80,7 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
   const [shareTemplateIndex, setShareTemplateIndex] = useState<number>(0);
   const lastTemplateIndexRef = useRef<number>(-1);
   const [runtimeGStack, setRuntimeGStack] = useState<number | null>(null);
-  const [runtimeUptimeSeconds, setRuntimeUptimeSeconds] = useState<number | null>(null);
+  const [runtimeUptimeSeconds, setRuntimeUptimeSeconds] = useState<number | null>(getDisplayTickUptimeSeconds);
   const [runtimeStatusLoading, setRuntimeStatusLoading] = useState(true);
   const runtimeStatusInitializedRef = useRef(false);
   const [runtimeAgents, setRuntimeAgents] = useState<Array<{
@@ -102,19 +109,15 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
         const service = new RuntimePhase1Service(new RuntimeClient({ baseUrl: runtimeBaseUrl }));
         const status = await service.getColonyStatus();
         const statusRecord = status as Record<string, unknown> | null;
-        const uptime =
-          toNumberOrNull(status?.uptime_seconds) ??
-          toNumberOrNull(status?.running_seconds) ??
-          toNumberOrNull(status?.duration_seconds);
         const totalToken =
           toNumberOrNull(statusRecord?.total_token) ??
           toNumberOrNull(status?.total_tokens) ??
           toNumberOrNull(status?.token_total);
-        if (!cancelled) setRuntimeUptimeSeconds(uptime);
+        if (!cancelled) setRuntimeUptimeSeconds(getDisplayTickUptimeSeconds());
         if (!cancelled) setRuntimeGStack(totalToken);
       } catch {
         if (!cancelled) {
-          setRuntimeUptimeSeconds(null);
+          setRuntimeUptimeSeconds(getDisplayTickUptimeSeconds());
           setRuntimeGStack(null);
         }
       } finally {
@@ -131,6 +134,14 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
       cancelled = true;
       window.clearInterval(timer);
     };
+  }, []);
+
+  useEffect(() => {
+    const refreshDisplayTick = () => setRuntimeUptimeSeconds(getDisplayTickUptimeSeconds());
+
+    refreshDisplayTick();
+    const timer = window.setInterval(refreshDisplayTick, 30000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
