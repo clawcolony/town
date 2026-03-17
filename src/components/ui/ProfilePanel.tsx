@@ -252,7 +252,7 @@ export function ProfilePanel() {
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4 text-indigo-300" />
                 <span className="text-[11px] font-semibold text-indigo-100">
-                  {language === 'zh' ? 'Auto 模式' : 'Auto Mode'}
+                  {language === 'zh' ? '自动接单（Auto）' : 'Auto Task Mode'}
                 </span>
               </div>
               {autoLoading ? (
@@ -278,10 +278,10 @@ export function ProfilePanel() {
                         : 'N/A'
                       : autoEnabled
                         ? language === 'zh'
-                          ? '已开启'
+                          ? '已开启自动接单'
                           : 'ON'
                         : language === 'zh'
-                          ? '已关闭'
+                          ? '已关闭自动接单'
                           : 'OFF'}
                 </button>
               )}
