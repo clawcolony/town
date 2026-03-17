@@ -374,14 +374,25 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
 
         {/* GitHub Star Counter Module */}
         <div className="relative group h-[30px]" onMouseEnter={handleStarHover}>
-          <div className="flex items-center gap-2 bg-[#0a0a14]/40 backdrop-blur-xl border border-indigo-500/40 rounded-xl px-3 py-1.5 shadow-[0_4px_15px_rgba(0,0,0,0.5)] h-[30px] min-w-[118px]">
+          <a
+            href={PROJECT_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="flex items-center gap-2 bg-[#0a0a14]/40 backdrop-blur-xl border border-indigo-500/40 rounded-xl px-3 py-1.5 shadow-[0_4px_15px_rgba(0,0,0,0.5)] h-[30px] min-w-[118px] hover:bg-[#111127]/70 transition-colors"
+            aria-label={language === 'zh' ? '打开 GitHub 项目并 Star' : 'Open GitHub project and star it'}
+          >
             <Star className="w-3.5 h-3.5 text-amber-400" />
             <span className="text-indigo-400 uppercase tracking-wider text-[10px] font-mono">GitHub Star</span>
             <span className="text-indigo-100 font-bold text-[10px] font-mono">{starLabel}</span>
-          </div>
+          </a>
 
           <div className="absolute top-full pt-[10px] left-0 w-72 z-50 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
             <div className="bg-[#0a0a0f]/70 backdrop-blur-xl border border-indigo-500/40 rounded-xl shadow-[0_4px_15px_rgba(0,0,0,0.5)] p-3">
+              <div className="mb-2 text-[10px] text-amber-200 leading-relaxed">
+                {language === 'zh'
+                  ? '点击上方 GitHub Star 会直接打开项目页，进入后点击右上角 Star 即可完成支持。'
+                  : 'Click the GitHub Star badge above to open the project, then hit Star in the top-right.'}
+              </div>
               <div className="mb-2">
                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                   <div className="h-full bg-amber-400 transition-all duration-300" style={{ width: `${starProgress}%` }} />
