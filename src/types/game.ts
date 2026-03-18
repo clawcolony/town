@@ -69,9 +69,11 @@ export interface GameEvent {
 
 export interface SystemLog {
   id: string;
+  kind?: 'chronicle' | 'repo';
   source: string;
   timestamp: string;
   timestampZh?: string;
+  sortAt?: number;
   content: string;
   contentZh?: string;
   colorClass: string;

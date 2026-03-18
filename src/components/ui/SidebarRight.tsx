@@ -7,17 +7,6 @@ import { RuntimeClient, RuntimePhase1Service, getRuntimeBaseUrl } from '../../se
 import { ListStateView } from './ListStateView';
 import type { SystemLog } from '../../types/game';
 
-type OpsItem = {
-  id: string;
-  agent: string;
-  action: string;
-  actionZh: string;
-  type: string;
-  time: string;
-  timeZh: string;
-  points: string;
-};
-
 type FeedComm = {
   id: string;
   sender: string;
@@ -32,6 +21,24 @@ type FeedComm = {
 type FeedSystemLog = SystemLog & {
   sortTs: number;
 };
+
+type GitHubCommitItem = {
+  sha: string;
+  html_url?: string;
+  commit?: {
+    message?: string;
+    author?: {
+      name?: string;
+      date?: string;
+    };
+  };
+  author?: {
+    login?: string;
+  } | null;
+};
+
+const GITHUB_MONITOR_REPO = 'wakenmeng/clawcolony';
+const GITHUB_COMMITS_API = `https://api.github.com/repos/${GITHUB_MONITOR_REPO}/commits?per_page=40`;
 
 const toRelative = (value?: string, locale: 'zh' | 'en' = 'en'): string => {
   if (!value) return locale === 'zh' ? '刚刚' : 'just now';
@@ -58,9 +65,7 @@ export function SidebarRight() {
   const { t } = useTranslation();
   const language = useI18nStore(state => state.language);
   const feedHubLabel = language === 'zh' ? '信号枢纽' : 'Signal Hub';
-  const [opsData, setOpsData] = useState<OpsItem[]>([]);
   const [remoteComms, setRemoteComms] = useState<FeedComm[]>([]);
-  const [opsLoading, setOpsLoading] = useState(true);
   const [commsLoading, setCommsLoading] = useState(true);
   const [activeFeed, setActiveFeed] = useState<'comms' | 'monitor'>('monitor');
   const [isFeedOpen, setIsFeedOpen] = useState(true);
@@ -68,6 +73,7 @@ export function SidebarRight() {
 
   const [remoteSystemLogs, setRemoteSystemLogs] = useState<FeedSystemLog[] | null>(null);
   const [remoteSystemLogsLoading, setRemoteSystemLogsLoading] = useState(true);
+  const [monitorFilter, setMonitorFilter] = useState<'all' | 'chronicle' | 'repo'>('all');
   const logsEndRef = useRef<HTMLDivElement>(null);
   const systemLogsInitializedRef = useRef(false);
 
@@ -88,119 +94,6 @@ export function SidebarRight() {
     let cancelled = false;
     const runtimeBaseUrl = getRuntimeBaseUrl();
     const service = new RuntimePhase1Service(new RuntimeClient({ baseUrl: runtimeBaseUrl }));
-
-    const extractActorName = (item: Record<string, unknown>): string | false => {
-      // Backend events use actors[] array with {user_id, username, nickname, display_name}
-      if (Array.isArray(item.actors) && item.actors.length > 0) {
-        const first = item.actors[0] as Record<string, unknown>;
-        return (typeof first.display_name === 'string' && first.display_name) ||
-          (typeof first.nickname === 'string' && first.nickname) ||
-          (typeof first.username === 'string' && first.username) ||
-          (typeof first.user_id === 'string' && first.user_id) ||
-          false;
-      }
-      return false;
-    };
-
-    const toOpsItem = (item: Record<string, unknown>, idx: number): OpsItem => {
-      const agent =
-        extractActorName(item) ||
-        (typeof item.actor === 'string' && item.actor) ||
-        (typeof item.nickname === 'string' && item.nickname) ||
-        (typeof item.name === 'string' && item.name) ||
-        (typeof item.user_id === 'string' && item.user_id) ||
-        (typeof item.agent === 'string' && item.agent) ||
-        `Agent #${idx + 1}`;
-      const type =
-        (typeof item.type === 'string' && item.type) ||
-        (typeof item.category === 'string' && item.category) ||
-        'ops';
-      const action =
-        (typeof item.action === 'string' && item.action) ||
-        (typeof item.title === 'string' && item.title) ||
-        (typeof item.summary === 'string' && item.summary) ||
-        (typeof item.summary_zh === 'string' && item.summary_zh) ||
-        (typeof item.event === 'string' && item.event) ||
-        (typeof item.message === 'string' && item.message) ||
-        (typeof item.detail === 'string' && item.detail) ||
-        `Event updated for ${agent}`;
-      const buildCount =
-        typeof item.build_count === 'number'
-          ? item.build_count
-          : typeof item.builds === 'number'
-            ? item.builds
-            : typeof item.stats === 'object' && item.stats && typeof (item.stats as { builds?: unknown }).builds === 'number'
-              ? ((item.stats as { builds: number }).builds)
-              : 0;
-      const taskCount =
-        typeof item.task_count === 'number'
-          ? item.task_count
-          : typeof item.tasks === 'number'
-            ? item.tasks
-            : typeof item.stats === 'object' && item.stats && typeof (item.stats as { tasks?: unknown }).tasks === 'number'
-              ? ((item.stats as { tasks: number }).tasks)
-              : 0;
-      const rewardValue =
-        typeof item.reward === 'number'
-          ? item.reward
-          : typeof item.points === 'number'
-            ? item.points
-            : typeof item.total_reward_24h === 'number'
-              ? item.total_reward_24h
-              : typeof item.total_reward === 'number'
-                ? item.total_reward
-                : typeof item.score === 'number'
-                  ? item.score
-                  : typeof item.stats === 'object' && item.stats && typeof (item.stats as { reward?: unknown }).reward === 'number'
-                    ? ((item.stats as { reward: number }).reward)
-                    : 0;
-      const actionZh = `${action}（建造 ${buildCount} / 任务 ${taskCount}）`;
-      const eventAt =
-        (typeof item.occurred_at === 'string' && item.occurred_at) ||
-        (typeof item.last_action_at === 'string' && item.last_action_at) ||
-        (typeof item.last_event_at === 'string' && item.last_event_at) ||
-        (typeof item.last_activity_at === 'string' && item.last_activity_at) ||
-        (typeof item.updated_at === 'string' && item.updated_at) ||
-        (typeof item.created_at === 'string' && item.created_at) ||
-        undefined;
-      const idValue =
-        (typeof item.event_id === 'string' && item.event_id) ||
-        item.id ||
-        `${agent}-${idx}`;
-      const pointsLabel =
-        rewardValue === 0
-          ? '--'
-          : `${rewardValue >= 0 ? '+' : ''}${Math.round(rewardValue)} TOKEN`;
-
-      return {
-        id: String(idValue),
-        agent,
-        action,
-        actionZh,
-        type,
-        time: toRelative(eventAt, 'en'),
-        timeZh: toRelative(eventAt, 'zh'),
-        points: pointsLabel,
-      };
-    };
-
-    const loadOps = async () => {
-      try {
-        const events = await service.getEvents(80);
-        const mapped = events
-          .map((item, idx) => toOpsItem(item as Record<string, unknown>, idx))
-          .slice(0, 20);
-        if (!cancelled) {
-          setOpsData(mapped);
-          setOpsLoading(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setOpsData([]);
-          setOpsLoading(false);
-        }
-      }
-    };
 
     const toComm = (item: Record<string, unknown>, idx: number): FeedComm => {
       const fromUser =
@@ -268,10 +161,48 @@ export function SidebarRight() {
       }
     };
 
+    const loadRepoActivity = async (): Promise<FeedSystemLog[]> => {
+      const response = await fetch(GITHUB_COMMITS_API, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`github commits request failed: ${response.status}`);
+      }
+
+      const commits = (await response.json()) as GitHubCommitItem[];
+      return commits.map((item, idx) => {
+        const message = item.commit?.message?.trim() || 'Repository updated';
+        const [summary, ...rest] = message.split('\n');
+        const author = item.author?.login || item.commit?.author?.name || 'GitHub';
+        const committedAt = item.commit?.author?.date;
+        const shortSha = item.sha.slice(0, 7);
+        const detail = rest.join('\n').trim();
+        const content = detail.length > 0 ? `${summary}\n${detail}` : summary;
+
+        return {
+          id: `repo-${item.sha || idx}`,
+          kind: 'repo',
+          source: `Repo · ${author} · ${shortSha}`,
+          timestamp: toRelative(committedAt, 'en'),
+          timestampZh: toRelative(committedAt, 'zh'),
+          sortAt: committedAt ? Date.parse(committedAt) : undefined,
+          content,
+          contentZh: content,
+          colorClass: 'text-emerald-400',
+          sortTs: toSortTs(committedAt),
+        };
+      });
+    };
+
     const loadChronicle = async () => {
       if (!cancelled && !systemLogsInitializedRef.current) setRemoteSystemLogsLoading(true);
       try {
-        const [chronicles, events] = await Promise.all([service.getColonyChronicle(60), service.getEvents(60)]);
+        const [chronicles, repoActivity] = await Promise.all([
+          service.getColonyChronicle(60),
+          loadRepoActivity().catch(() => []),
+        ]);
         if (cancelled) return;
         const mappedChronicle: FeedSystemLog[] = chronicles.map((item, idx) => {
           const raw = item as Record<string, unknown>;
@@ -293,49 +224,18 @@ export function SidebarRight() {
             undefined;
           return {
             id: `chronicle-${item.id ?? idx}`,
+            kind: 'chronicle',
             source: `Chronicle · ${title}`,
             timestamp: toRelative(rawAt, 'en'),
             timestampZh: toRelative(rawAt, 'zh'),
+            sortAt: rawAt ? Date.parse(rawAt) : undefined,
             content: detail,
             contentZh: detail,
             colorClass: 'text-fuchsia-400',
             sortTs: toSortTs(rawAt),
           };
         });
-        const mappedEvents: FeedSystemLog[] = events.map((item, idx) => {
-          const raw = item as Record<string, unknown>;
-          const actor =
-            extractActorName(raw) ||
-            (typeof item.nickname === 'string' && item.nickname) ||
-            (typeof item.name === 'string' && item.name) ||
-            (typeof item.actor === 'string' && item.actor) ||
-            (typeof item.user_id === 'string' && item.user_id) ||
-            `Agent #${idx + 1}`;
-          const action =
-            (typeof item.action === 'string' && item.action) ||
-            (typeof item.title === 'string' && item.title) ||
-            (typeof raw.summary === 'string' && raw.summary) ||
-            (typeof raw.summary_zh === 'string' && raw.summary_zh) ||
-            (typeof item.message === 'string' && item.message) ||
-            (typeof item.detail === 'string' && item.detail) ||
-            'updated colony state';
-          const rawAt =
-            (typeof raw.occurred_at === 'string' && raw.occurred_at) ||
-            (typeof item.created_at === 'string' && item.created_at) ||
-            (typeof item.updated_at === 'string' && item.updated_at) ||
-            undefined;
-          return {
-            id: `event-${raw.event_id ?? item.id ?? idx}`,
-            source: `Event · ${actor}`,
-            timestamp: toRelative(rawAt, 'en'),
-            timestampZh: toRelative(rawAt, 'zh'),
-            content: action,
-            contentZh: action,
-            colorClass: 'text-cyan-400',
-            sortTs: toSortTs(rawAt),
-          };
-        });
-        const merged = [...mappedChronicle, ...mappedEvents]
+        const merged = [...mappedChronicle, ...repoActivity]
           .sort((a, b) => {
             if (a.sortTs !== b.sortTs) return a.sortTs - b.sortTs;
             return a.id.localeCompare(b.id);
@@ -352,11 +252,9 @@ export function SidebarRight() {
       }
     };
 
-    loadOps();
     loadComms();
     loadChronicle();
     const timer = window.setInterval(() => {
-      loadOps();
       loadComms();
       loadChronicle();
     }, 30000);
@@ -367,6 +265,41 @@ export function SidebarRight() {
   }, []);
 
   const effectiveSystemLogs = remoteSystemLogs ?? [];
+  const chronicleLogs = effectiveSystemLogs
+    .filter(log => log.kind === 'chronicle')
+    .sort((a, b) => (b.sortAt ?? 0) - (a.sortAt ?? 0));
+  const repoLogs = effectiveSystemLogs
+    .filter(log => log.kind === 'repo')
+    .sort((a, b) => (b.sortAt ?? 0) - (a.sortAt ?? 0));
+  const filteredLogs =
+    monitorFilter === 'all'
+      ? [...chronicleLogs, ...repoLogs].sort((a, b) => (b.sortAt ?? 0) - (a.sortAt ?? 0))
+      : monitorFilter === 'chronicle'
+        ? chronicleLogs
+        : repoLogs;
+
+  const renderSystemLogCard = (log: SystemLog) => (
+    <div key={log.id} className="p-2.5 drop-shadow-md bg-indigo-950/20 rounded-lg border border-indigo-500/20">
+      <div className="flex justify-between items-start mb-1 gap-3">
+        <span className={`${log.colorClass} text-[10px] font-mono font-bold flex items-center gap-1.5 min-w-0`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_5px_currentColor] shrink-0"></span>
+          <span className="truncate">{log.source}</span>
+        </span>
+        <span className="text-slate-500 text-[9px] font-mono tracking-wider shrink-0">
+          {language === 'zh' && log.timestampZh ? log.timestampZh : log.timestamp}
+        </span>
+      </div>
+      <p className="text-indigo-200/80 text-[10px] leading-relaxed font-mono tracking-wider mt-1.5 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+        {language === 'zh' && log.contentZh ? log.contentZh : log.content}
+      </p>
+    </div>
+  );
+
+  const monitorFilterOptions: Array<{ id: 'all' | 'chronicle' | 'repo'; label: string }> = [
+    { id: 'all', label: t('sidebarRight.all') },
+    { id: 'chronicle', label: t('sidebarRight.monitorChronicle') },
+    { id: 'repo', label: t('sidebarRight.monitorRepo') },
+  ];
 
   return (
     <div className="absolute top-10 right-6 bottom-4 flex flex-col pointer-events-none z-40">
@@ -459,28 +392,35 @@ export function SidebarRight() {
               </>
             ) : (
               <>
+                <div className="shrink-0 p-3 pb-2 border-b border-indigo-500/20 bg-[#0a0a14]/35 backdrop-blur-md">
+                  <div className="flex gap-1.5 rounded-lg border border-indigo-500/20 bg-[#0b0b18]/60 p-1">
+                    {monitorFilterOptions.map(option => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setMonitorFilter(option.id)}
+                        className={`flex-1 h-7 rounded-md border text-[9px] font-mono tracking-wider transition-colors ${
+                          monitorFilter === option.id
+                            ? 'border-indigo-400/70 bg-indigo-500/20 text-indigo-200'
+                            : 'border-transparent bg-transparent text-indigo-400/70 hover:bg-indigo-500/10'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex-1 overflow-y-auto space-y-3 p-3 custom-scrollbar">
                   <ListStateView
                     loading={remoteSystemLogsLoading}
                     isEmpty={effectiveSystemLogs.length === 0}
-                    loadingText={language === 'zh' ? '底层监控加载中...' : 'Loading monitor logs...'}
-                    emptyText={language === 'zh' ? '暂无底层监控数据' : 'No monitor log data'}
+                    loadingText={t('sidebarRight.monitorLoading')}
+                    emptyText={t('sidebarRight.monitorEmpty')}
                     className="px-1 py-2 text-[10px] font-mono tracking-wider text-slate-500"
                   >
-                    {effectiveSystemLogs.map(log => (
-                      <div key={log.id} className="p-2.5 drop-shadow-md bg-indigo-950/20 rounded-lg border border-indigo-500/20">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className={`${log.colorClass} text-[10px] font-mono font-bold flex items-center gap-1.5`}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_5px_currentColor]"></span>
-                            {log.source}
-                          </span>
-                          <span className="text-slate-500 text-[9px] font-mono tracking-wider">{language === 'zh' && log.timestampZh ? log.timestampZh : log.timestamp}</span>
-                        </div>
-                        <p className="text-indigo-200/80 text-[10px] leading-relaxed font-mono tracking-wider mt-1.5">
-                          {language === 'zh' && log.contentZh ? log.contentZh : log.content}
-                        </p>
-                      </div>
-                    ))}
+                    <div className="space-y-3">
+                      {filteredLogs.map(renderSystemLogCard)}
+                    </div>
                   </ListStateView>
                   <div ref={logsEndRef} />
                 </div>

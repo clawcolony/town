@@ -1,10 +1,11 @@
 import React, { useRef, useEffect } from 'react';
-import { Environment, OrbitControls, PerspectiveCamera, ContactShadows, GizmoHelper, GizmoViewcube, Billboard, Html } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, ContactShadows, GizmoHelper, GizmoViewcube, Billboard, Html } from '@react-three/drei';
 import { GridSystem } from './GridSystem';
 import { Building } from './Building';
 import { Lobster } from './Lobster';
 import { CustomAssetModel } from './CustomAssetModel';
 import { PostProcessing } from './PostProcessing';
+import { SceneEnvironment } from './SceneEnvironment';
 import { BUILDINGS, LOBSTERS, getElevation, getParcelId, getVisibleTerrainBounds, TILE_GAP, gridCoordToWorld } from '../../constants/gameData';
 import { useGameStore } from '../../store/gameStore';
 import { useI18nStore } from '../../store/i18nStore';
@@ -727,7 +728,7 @@ export function Scene() {
         color="#000000"
       />
       <PostProcessing />
-      <Environment preset="city" />
+      <SceneEnvironment />
 
       <GizmoHelper
         alignment="bottom-left"

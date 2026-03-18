@@ -471,7 +471,7 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
               <div className="px-4 py-2.5 border-b border-white/10 bg-white/5 flex items-center justify-between">
                 <span className="text-[10px] font-bold text-purple-200 tracking-wider uppercase">{t('header.agentsTitle')}</span>
                 <span className="text-[10px] text-purple-400 font-mono">
-                  {runtimeAgentsLoading ? '--' : `${visibleAgents.length} TOTAL`}
+                  {runtimeAgentsLoading ? '--' : `${leaderboardCount} TOTAL`}
                 </span>
               </div>
               
