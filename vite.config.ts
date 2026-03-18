@@ -129,7 +129,8 @@ const buildingLayoutPersistencePlugin = (): Plugin => ({
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
-  const runtimeProxyTarget = env.VITE_RUNTIME_PROXY_TARGET || 'http://127.0.0.1:18080';
+  const rawRuntimeProxyTarget = env.VITE_RUNTIME_PROXY_TARGET || 'http://127.0.0.1:18080';
+  const runtimeProxyTarget = rawRuntimeProxyTarget.replace(/\/+$/, '').replace(/\/api$/, '');
   return {
     plugins: [react(), tailwindcss(), buildingLayoutPersistencePlugin()],
     define: {
