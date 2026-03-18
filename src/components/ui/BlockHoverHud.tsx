@@ -7,7 +7,7 @@ export function BlockHoverHud() {
   const language = useI18nStore((state) => state.language);
 
   return (
-    <div className="pointer-events-none fixed bottom-6 left-6 z-20 bg-[#05070d]/80 px-4 py-3 font-mono text-[11px] text-slate-100">
+    <div className="pointer-events-none fixed bottom-6 left-6 z-[8] bg-[#05070d]/80 px-4 py-3 font-mono text-[11px] text-slate-100">
       <div>
         {language === 'zh' ? '当前 Block' : 'Current Block'}:{' '}
         <span className="text-cyan-300">{hoverBlockInfo?.blockLabel ?? '--'}</span>
