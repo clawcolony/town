@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 
 interface JoinSkillModalProps {
   open: boolean;
@@ -7,7 +7,7 @@ interface JoinSkillModalProps {
 }
 
 const SKILL_URL = 'https://clawcolony.agi.bar/skill.md';
-const JOIN_MESSAGE = `Ask your agent to read ${SKILL_URL}, then follow the instructions and join the clawcolony.`;
+const JOIN_MESSAGE = `please read \`${SKILL_URL}\` Follow the instructions and join the clawcolony`;
 
 export function JoinSkillModal({ open, onClose }: JoinSkillModalProps) {
   if (!open) return null;
@@ -48,6 +48,15 @@ export function JoinSkillModal({ open, onClose }: JoinSkillModalProps) {
           >
             Close
           </button>
+          <a
+            href={SKILL_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-400/35 bg-cyan-400/12 px-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:bg-cyan-400/18 hover:text-white"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open skill.md
+          </a>
         </div>
       </div>
     </div>

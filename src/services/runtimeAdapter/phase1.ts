@@ -163,10 +163,10 @@ export class RuntimePhase1Service {
 
   async getAgentProfile(userId: string): Promise<NormalizedAgentProfile | null> {
     const [bots, token, lifeStates, monitor] = await Promise.all([
-      this.client.get<RuntimeBotsResponse>('/api/v1/bots'),
-      this.client.get<RuntimeTokenBalanceResponse>('/api/v1/token/balance', { user_id: userId }),
-      this.client.get<RuntimeLifeStateResponse>('/api/v1/world/life-state', { user_id: userId, limit: 1 }),
-      this.client.get<RuntimeMonitorOverviewResponse>('/api/v1/monitor/agents/overview', { user_id: userId }),
+      this.client.get<RuntimeBotsResponse>('/v1/bots'),
+      this.client.get<RuntimeTokenBalanceResponse>('/v1/token/balance', { user_id: userId }),
+      this.client.get<RuntimeLifeStateResponse>('/v1/world/life-state', { user_id: userId, limit: 1 }),
+      this.client.get<RuntimeMonitorOverviewResponse>('/v1/monitor/agents/overview', { user_id: userId }),
     ]);
 
     const bot = bots.items.find((item) => item.user_id === userId);
@@ -201,15 +201,15 @@ export class RuntimePhase1Service {
     proposalId?: number;
   }): Promise<NormalizedChronicleItem[]> {
     const [ticks, costs, evolution] = await Promise.all([
-      this.client.get<RuntimeTickHistoryResponse>('/api/v1/world/tick/history', { limit: 50 }),
-      this.client.get<RuntimeCostEventsResponse>('/api/v1/world/cost-events', { user_id: params.userId, limit: 50 }),
-      this.client.get<RuntimeEvolutionAlertsResponse>('/api/v1/world/evolution-alerts'),
+      this.client.get<RuntimeTickHistoryResponse>('/v1/world/tick/history', { limit: 50 }),
+      this.client.get<RuntimeCostEventsResponse>('/v1/world/cost-events', { user_id: params.userId, limit: 50 }),
+      this.client.get<RuntimeEvolutionAlertsResponse>('/v1/world/evolution-alerts'),
     ]);
 
     const world = mapChronicleFromWorld(ticks, costs, evolution);
     const collabItems = params.collabId
       ? mapChronicleFromCollab(
-          await this.client.get<RuntimeCollabEventsResponse>('/api/v1/collab/events', {
+          await this.client.get<RuntimeCollabEventsResponse>('/v1/collab/events', {
             collab_id: params.collabId,
             limit: 30,
           }),
@@ -217,7 +217,7 @@ export class RuntimePhase1Service {
       : [];
     const kbItems = params.proposalId
       ? mapChronicleFromKb(
-          await this.client.get<RuntimeKbThreadResponse>('/api/v1/kb/proposals/thread', {
+          await this.client.get<RuntimeKbThreadResponse>('/v1/kb/proposals/thread', {
             proposal_id: params.proposalId,
             limit: 30,
           }),
@@ -227,7 +227,7 @@ export class RuntimePhase1Service {
   }
 
   async getBountyList(status?: RuntimeBountyItem['status']): Promise<RuntimeBountyItem[]> {
-    const data = await this.client.get<RuntimeBountyListResponse>('/api/v1/bounty/list', {
+    const data = await this.client.get<RuntimeBountyListResponse>('/v1/bounty/list', {
       status,
       limit: 100,
     });
@@ -235,54 +235,63 @@ export class RuntimePhase1Service {
   }
 
   async getTokenHolding(userId: string): Promise<RuntimeTokenBalanceResponse> {
-    return this.client.get<RuntimeTokenBalanceResponse>('/api/v1/token/balance', { user_id: userId });
+    return this.client.get<RuntimeTokenBalanceResponse>('/v1/token/balance', { user_id: userId });
   }
 
   async donateToken(payload: RuntimeTokenDonatePayload): Promise<RuntimeTokenDonateResponse> {
-    // Backend uses /api/v1/token/tip (requires from_user_id, to_user_id, amount, reason)
+    // Backend uses /v1/token/tip (requires from_user_id, to_user_id, amount, reason)
     const tipPayload = {
       from_user_id: (payload as unknown as Record<string, unknown>).from_user_id || '',
       to_user_id: payload.to_user_id,
       amount: payload.amount,
       reason: payload.memo || 'donation',
     };
-    const data = await this.client.post<Record<string, unknown>>('/api/v1/token/tip', tipPayload);
+    const data = await this.client.post<Record<string, unknown>>('/v1/token/tip', tipPayload);
     return { ok: true, item: { to_user_id: payload.to_user_id, amount: payload.amount } } as RuntimeTokenDonateResponse;
   }
 
   async getOnlineBots(): Promise<RuntimeBot[]> {
-    const data = await this.client.get<RuntimeBotsResponse>('/api/v1/bots', {
+    const data = await this.client.get<RuntimeBotsResponse>('/v1/bots', {
       include_inactive: false,
     });
     return data.items;
   }
 
   async postBounty(payload: RuntimeBountyPostPayload): Promise<RuntimeBountyItem> {
-    const data = await this.client.post<RuntimeBountyMutationResponse>('/api/v1/bounty/post', payload);
+    const data = await this.client.post<RuntimeBountyMutationResponse>('/v1/bounty/post', payload);
     return data.item;
   }
 
   async claimBounty(payload: RuntimeBountyClaimPayload): Promise<RuntimeBountyItem> {
-    const data = await this.client.post<RuntimeBountyMutationResponse>('/api/v1/bounty/claim', payload);
+    const data = await this.client.post<RuntimeBountyMutationResponse>('/v1/bounty/claim', payload);
     return data.item;
   }
 
   async verifyBounty(payload: RuntimeBountyVerifyPayload): Promise<RuntimeBountyItem> {
-    const data = await this.client.post<RuntimeBountyMutationResponse>('/api/v1/bounty/verify', payload);
+    const data = await this.client.post<RuntimeBountyMutationResponse>('/v1/bounty/verify', payload);
     return data.item;
   }
 
   async getConstitutionLaw(): Promise<RuntimeTianDaoLawResponse> {
-    return this.client.get<RuntimeTianDaoLawResponse>('/api/v1/tian-dao/law');
+    return this.client.get<RuntimeTianDaoLawResponse>('/v1/tian-dao/law');
   }
 
   async getKbEntries(section?: string, limit = 20): Promise<RuntimeKbEntry[]> {
-    const data = await this.client.get<RuntimeKbEntriesResponse>('/api/v1/kb/entries', { section, limit });
+    const data = await this.client.get<RuntimeKbEntriesResponse>('/v1/kb/entries', { section, limit });
     return data.items;
   }
 
   async getTokenLeaderboard(limit = 5): Promise<Array<{ user_id: string; balance: number }>> {
-    const data = await this.client.get<RuntimeTokenLeaderboardResponse>('/api/v1/token/leaderboard', { limit });
+    const data = await this.getTokenLeaderboardPage(limit);
+    if (data.items.length === 0) return [];
+    return data.items;
+  }
+
+  async getTokenLeaderboardPage(limit = 5): Promise<{
+    items: Array<{ user_id: string; balance: number }>;
+    total: number | null;
+  }> {
+    const data = await this.client.get<RuntimeTokenLeaderboardResponse>('/v1/token/leaderboard', { limit });
     const records = this.pickList<RuntimeTokenLeaderboardItem>(data, ['items', 'rows', 'leaderboard', 'list', 'data']);
     const normalized = records
       .map((item) => {
@@ -303,17 +312,31 @@ export class RuntimePhase1Service {
         return { user_id: userId, balance };
       })
       .filter((item) => item.user_id.length > 0);
-    if (normalized.length === 0) return [];
-    return normalized.sort((a, b) => b.balance - a.balance).slice(0, limit);
+    const total =
+      (typeof data.total === 'number' && Number.isFinite(data.total) ? data.total : null) ??
+      (typeof data.data === 'object' &&
+      data.data !== null &&
+      !Array.isArray(data.data) &&
+      typeof data.data.total === 'number' &&
+      Number.isFinite(data.data.total)
+        ? data.data.total
+        : null);
+    if (normalized.length === 0) {
+      return { items: [], total };
+    }
+    return {
+      items: normalized.sort((a, b) => b.balance - a.balance).slice(0, limit),
+      total,
+    };
   }
 
   async getChatHistory(_userId: string, _limit = 80): Promise<RuntimeChatMessage[]> {
-    // Backend has removed /api/v1/chat/history — return empty array
+    // Backend has removed /v1/chat/history — return empty array
     return [];
   }
 
   async getProductOverview(window = '24h', includeInactive = false): Promise<RuntimeProductOverviewItem[]> {
-    const data = await this.client.get<RuntimeProductOverviewResponse>('/api/v1/ops/product-overview', {
+    const data = await this.client.get<RuntimeProductOverviewResponse>('/v1/ops/product-overview', {
       window,
       include_inactive: includeInactive ? 1 : 0,
     });
@@ -321,12 +344,12 @@ export class RuntimePhase1Service {
   }
 
   async getCommunications(limit = 80): Promise<RuntimeCommsItem[]> {
-    const data = await this.client.get<RuntimeCommunicationsResponse>('/api/v1/monitor/communications', { limit });
+    const data = await this.client.get<RuntimeCommunicationsResponse>('/v1/monitor/communications', { limit });
     return this.pickList<RuntimeCommsItem>(data, ['items', 'rows', 'messages', 'list', 'data']);
   }
 
   async getColonyStatus(): Promise<RuntimeColonyStatus | null> {
-    const data = await this.client.get<RuntimeColonyStatusResponse & RuntimeColonyStatus>('/api/v1/colony/status');
+    const data = await this.client.get<RuntimeColonyStatusResponse & RuntimeColonyStatus>('/v1/colony/status');
     if (data.item) return data.item;
     if (data.status) return data.status;
     if (data.data) return data.data;
@@ -349,18 +372,18 @@ export class RuntimePhase1Service {
   }
 
   async getWorldLifeState(limit = 100): Promise<RuntimeLifeStateResponse['items']> {
-    const data = await this.client.get<RuntimeLifeStateResponse>('/api/v1/world/life-state', { limit });
+    const data = await this.client.get<RuntimeLifeStateResponse>('/v1/world/life-state', { limit });
     if (Array.isArray(data.items)) return data.items;
     return [];
   }
 
   async getColonyChronicle(limit = 80): Promise<RuntimeColonyChronicleItem[]> {
-    const data = await this.client.get<RuntimeColonyChronicleResponse>('/api/v1/colony/chronicle', { limit });
+    const data = await this.client.get<RuntimeColonyChronicleResponse>('/v1/colony/chronicle', { limit });
     return this.pickList<RuntimeColonyChronicleItem>(data, ['items', 'rows', 'events', 'list', 'data']);
   }
 
   async getEvents(limit = 80): Promise<RuntimeEventItem[]> {
-    const data = await this.client.get<RuntimeEventsResponse>('/api/v1/events', { limit });
+    const data = await this.client.get<RuntimeEventsResponse>('/v1/events', { limit });
     return this.pickList<RuntimeEventItem>(data, ['items', 'rows', 'events', 'list', 'data']);
   }
 
@@ -425,12 +448,12 @@ export class RuntimePhase1Service {
     };
 
     try {
-      return await tryGet('/api/v1/agent/auto-mode');
+      return await tryGet('/v1/agent/auto-mode');
     } catch {
       try {
-        return await tryGet('/api/v1/bots/auto-mode');
+        return await tryGet('/v1/bots/auto-mode');
       } catch {
-        const overview = await this.client.get<RuntimeMonitorOverviewResponse>('/api/v1/monitor/agents/overview', {
+        const overview = await this.client.get<RuntimeMonitorOverviewResponse>('/v1/monitor/agents/overview', {
           user_id: userId,
         });
         const row = overview.items.find((item) => item.user_id === userId);
@@ -469,14 +492,23 @@ export class RuntimePhase1Service {
     };
 
     try {
-      return await tryPost('/api/v1/agent/auto-mode');
+      return await tryPost('/v1/agent/auto-mode');
     } catch {
-      return tryPost('/api/v1/bots/auto-mode');
+      return tryPost('/v1/bots/auto-mode');
     }
   }
 
-  async getGangliaBrowse(limit = 2000): Promise<Array<{ id: number; name: string }>> {
-    const data = await this.client.get<Record<string, unknown>>('/api/v1/ganglia/browse', { limit });
+  async getGangliaBrowse(limit = 2000): Promise<Array<{
+    id: number;
+    name: string;
+    type?: string;
+    description?: string;
+    content?: string;
+    implementation?: string;
+    updated_at?: string;
+    created_at?: string;
+  }>> {
+    const data = await this.client.get<Record<string, unknown>>('/v1/ganglia/browse', { limit });
     const items = this.pickList<Record<string, unknown>>(data, ['items', 'rows', 'list', 'data']);
     const pickString = (...values: unknown[]): string | undefined => {
       for (const value of values) {
@@ -518,7 +550,7 @@ export class RuntimePhase1Service {
   }
 
   async getAllGangliaIntegrations(limit = 2000): Promise<Array<{ ganglion_id: number; user_id: string }>> {
-    const data = await this.client.get<Record<string, unknown>>('/api/v1/ganglia/integrations', { limit });
+    const data = await this.client.get<Record<string, unknown>>('/v1/ganglia/integrations', { limit });
     const items = this.pickList<Record<string, unknown>>(data, ['items', 'rows', 'list', 'data']);
     return items
       .map((item) => ({

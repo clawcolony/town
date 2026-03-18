@@ -83,6 +83,7 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
     lobsterId?: number;
     isConsumed?: boolean;
   }> | null>(null);
+  const [runtimeAgentsTotal, setRuntimeAgentsTotal] = useState<number | null>(null);
   const [runtimeAgentsLoading, setRuntimeAgentsLoading] = useState(true);
   const runtimeAgentsInitializedRef = useRef(false);
   // 模拟 tick 变化时的发光效果
@@ -141,12 +142,12 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
       if (!cancelled && !runtimeAgentsInitializedRef.current) setRuntimeAgentsLoading(true);
       try {
         const service = new RuntimePhase1Service(new RuntimeClient({ baseUrl: runtimeBaseUrl }));
-        const [bots, leaderboard] = await Promise.all([service.getOnlineBots(), service.getTokenLeaderboard(100)]);
+        const [bots, leaderboardPage] = await Promise.all([service.getOnlineBots(), service.getTokenLeaderboardPage(100)]);
         const botMap = new Map(
           bots.map((bot) => [bot.user_id, bot.nickname || bot.name || bot.user_id] as const),
         );
         const lobsterByName = new Map(lobsters.map((lobster) => [lobster.name, lobster]));
-        const ranked = leaderboard.map((item) => {
+        const ranked = leaderboardPage.items.map((item) => {
           const local = lobsterByName.get(item.user_id);
           return {
             userId: item.user_id,
@@ -156,9 +157,15 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
             isConsumed: local?.isConsumed,
           };
         });
-        if (!cancelled) setRuntimeAgents(ranked);
+        if (!cancelled) {
+          setRuntimeAgents(ranked);
+          setRuntimeAgentsTotal(leaderboardPage.total);
+        }
       } catch {
-        if (!cancelled) setRuntimeAgents([]);
+        if (!cancelled) {
+          setRuntimeAgents([]);
+          setRuntimeAgentsTotal(null);
+        }
       } finally {
         if (!cancelled) {
           setRuntimeAgentsLoading(false);
@@ -205,7 +212,11 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
   const effectiveGStack = runtimeGStack;
   const effectiveAgents = runtimeAgents ?? [];
   const visibleAgents = effectiveAgents.filter((agent) => (showConsumedAgents ? agent.isConsumed : !agent.isConsumed));
-  const leaderboardCount = runtimeAgentsLoading ? '--' : String(effectiveAgents.filter((agent) => !agent.isConsumed).length);
+  const leaderboardCount = runtimeAgentsLoading
+    ? '--'
+    : runtimeAgentsTotal !== null
+      ? String(runtimeAgentsTotal)
+      : String(effectiveAgents.filter((agent) => !agent.isConsumed).length);
   const uptimeLabel = toUptimeLabel(runtimeUptimeSeconds, language === 'zh' ? 'zh' : 'en');
   const gStackLabel = runtimeStatusLoading
     ? '--'

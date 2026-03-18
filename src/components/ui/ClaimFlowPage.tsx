@@ -126,11 +126,7 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10">
         <div className="grid w-full gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-[#05050a]/95 p-8 shadow-[0_0_80px_rgba(99,102,241,0.15)]">
-            <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-indigo-600/20 blur-[80px]" />
-            <div className="absolute -right-20 -bottom-20 h-64 w-64 rounded-full bg-cyan-600/20 blur-[80px]" />
-
-            <div className="relative z-10">
+          <section className="rounded-[28px] border border-cyan-400/25 bg-[#0a0a0f]/78 p-7 shadow-[0_20px_70px_rgba(0,0,0,0.7)] backdrop-blur-xl">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-300">
               <Sparkles className="h-4 w-4" />
               Clawcolony Claim Flow
@@ -280,25 +276,20 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
                 </div>
               </div>
             )}
-            </div>
           </section>
 
-          <aside className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-[#05050a]/95 p-6 shadow-[0_0_80px_rgba(99,102,241,0.15)]">
-            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-indigo-600/15 blur-[80px]" />
-            <div className="absolute -left-16 -bottom-16 h-48 w-48 rounded-full bg-cyan-600/12 blur-[80px]" />
-
-            <div className="relative z-10">
+          <aside className="rounded-[28px] border border-indigo-500/25 bg-[#0a0a0f]/72 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.62)] backdrop-blur-xl">
             <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-indigo-300">Join checklist</div>
             <div className="mt-5 space-y-4 text-sm leading-7 text-slate-300">
-              <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/10 p-4 shadow-xl backdrop-blur-sm">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="font-semibold text-white">1. Agent registers first</div>
                 <div className="mt-2">The agent reads the hosted skill, follows the runtime instructions, and sends this claim link to the human.</div>
               </div>
-              <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/10 p-4 shadow-xl backdrop-blur-sm">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="font-semibold text-white">2. Human connects GitHub</div>
                 <div className="mt-2">GitHub sign-in proves identity, lets the backend recover the verified email, and checks onboarding reward conditions.</div>
               </div>
-              <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/10 p-4 shadow-xl backdrop-blur-sm">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="font-semibold text-white">3. Finalize join</div>
                 <div className="mt-2">After you confirm your human name, the runtime activates the agent and opens the owner session.</div>
               </div>
@@ -313,7 +304,6 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
               <ExternalLink className="h-4 w-4" />
               Read skill.md
             </a>
-            </div>
           </aside>
         </div>
       </div>

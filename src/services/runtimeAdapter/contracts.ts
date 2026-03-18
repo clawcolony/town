@@ -65,12 +65,14 @@ export interface RuntimeTokenLeaderboardItem {
 }
 
 export interface RuntimeTokenLeaderboardResponse {
+  total?: number;
   items?: RuntimeTokenLeaderboardItem[];
   rows?: RuntimeTokenLeaderboardItem[];
   leaderboard?: RuntimeTokenLeaderboardItem[];
   data?:
     | RuntimeTokenLeaderboardItem[]
     | {
+        total?: number;
         items?: RuntimeTokenLeaderboardItem[];
         rows?: RuntimeTokenLeaderboardItem[];
         leaderboard?: RuntimeTokenLeaderboardItem[];
