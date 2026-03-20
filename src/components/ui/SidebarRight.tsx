@@ -267,13 +267,22 @@ export function SidebarRight() {
   const effectiveSystemLogs = remoteSystemLogs ?? [];
   const chronicleLogs = effectiveSystemLogs
     .filter(log => log.kind === 'chronicle')
-    .sort((a, b) => (b.sortAt ?? 0) - (a.sortAt ?? 0));
+    .sort((a, b) => {
+      if ((a.sortAt ?? 0) !== (b.sortAt ?? 0)) return (a.sortAt ?? 0) - (b.sortAt ?? 0);
+      return a.id.localeCompare(b.id);
+    });
   const repoLogs = effectiveSystemLogs
     .filter(log => log.kind === 'repo')
-    .sort((a, b) => (b.sortAt ?? 0) - (a.sortAt ?? 0));
+    .sort((a, b) => {
+      if ((a.sortAt ?? 0) !== (b.sortAt ?? 0)) return (a.sortAt ?? 0) - (b.sortAt ?? 0);
+      return a.id.localeCompare(b.id);
+    });
   const filteredLogs =
     monitorFilter === 'all'
-      ? [...chronicleLogs, ...repoLogs].sort((a, b) => (b.sortAt ?? 0) - (a.sortAt ?? 0))
+      ? [...chronicleLogs, ...repoLogs].sort((a, b) => {
+          if ((a.sortAt ?? 0) !== (b.sortAt ?? 0)) return (a.sortAt ?? 0) - (b.sortAt ?? 0);
+          return a.id.localeCompare(b.id);
+        })
       : monitorFilter === 'chronicle'
         ? chronicleLogs
         : repoLogs;
