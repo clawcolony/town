@@ -40,8 +40,12 @@ export class RuntimeClient {
     return this.request<T>('POST', path, body);
   }
 
+  async delete<T>(path: string): Promise<T> {
+    return this.request<T>('DELETE', path);
+  }
+
   private async request<T>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'DELETE',
     path: string,
     body?: unknown,
     query?: Record<string, string | number | boolean | undefined>,

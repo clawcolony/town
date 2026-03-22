@@ -19,15 +19,20 @@ import { WelcomeOverlay } from './components/ui/WelcomeOverlay';
 import { BlockHoverHud } from './components/ui/BlockHoverHud';
 import { JoinSkillModal } from './components/ui/JoinSkillModal';
 import { ClaimFlowPage } from './components/ui/ClaimFlowPage';
+import { GitHubAccessCallbackPage } from './components/ui/GitHubAccessCallbackPage';
 import { useGameStore } from './store/gameStore';
 
 import { Toaster, toast } from 'sonner';
 
 type ClaimRoute =
   | { kind: 'town' }
-  | { kind: 'claim'; claimToken: string; isCallback: boolean };
+  | { kind: 'claim'; claimToken: string; isCallback: boolean }
+  | { kind: 'github-access-callback' };
 
 const parseClaimRoute = (pathname: string): ClaimRoute => {
+  if (/^\/github-access\/callback\/?$/.test(pathname)) {
+    return { kind: 'github-access-callback' };
+  }
   const match = pathname.match(/^\/claim\/([^/]+?)(?:\/(callback))?\/?$/);
   if (!match) return { kind: 'town' };
   return {
@@ -71,6 +76,22 @@ export default function App() {
           }
         }} />
         <ClaimFlowPage claimToken={route.claimToken} isCallback={route.isCallback} />
+      </>
+    );
+  }
+
+  if (route.kind === 'github-access-callback') {
+    return (
+      <>
+        <Toaster theme="dark" position="bottom-left" toastOptions={{
+          style: {
+            background: 'rgba(5, 5, 10, 0.8)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            color: '#fff',
+          }
+        }} />
+        <GitHubAccessCallbackPage />
       </>
     );
   }

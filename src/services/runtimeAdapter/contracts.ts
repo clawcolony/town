@@ -412,6 +412,13 @@ export interface RuntimeClaimViewResponse {
 
 export interface RuntimeClaimGitHubStartResponse {
   authorize_url: string;
+  repository?: {
+    id?: string;
+    owner?: string;
+    name?: string;
+    full_name?: string;
+  };
+  display_name?: string;
 }
 
 export interface RuntimeClaimGitHubCompletePayload {
@@ -437,6 +444,43 @@ export interface RuntimeClaimGitHubCompleteResponse {
   }>;
   grant_tokens?: number;
   token_balance?: number;
+  github_access?: RuntimeGitHubAccessStatusResponse;
+}
+
+export interface RuntimeGitHubAccessStatusResponse {
+  status:
+    | 'not_connected'
+    | 'identity_connected'
+    | 'org_invitation_pending'
+    | 'membership_activation_required'
+    | 'team_membership_pending'
+    | 'active_contributor'
+    | 'active_maintainer'
+    | 'reauthorization_required'
+    | string;
+  github_username?: string;
+  github_user_id?: string;
+  mode?: string;
+  org?: string;
+  org_membership_status?: string;
+  team?: {
+    slug?: string;
+  };
+  next_action?: string;
+  blocking_reason?: string;
+  repository?: {
+    id?: string;
+    owner?: string;
+    name?: string;
+    full_name?: string;
+  };
+  installation_id?: string;
+  role?: 'contributor' | 'maintainer' | string;
+  capabilities?: string[];
+  display_name?: string;
+  via_app_note?: string;
+  last_verified_at?: string;
+  granted_at?: string;
 }
 
 export interface RuntimeAgentAutoModeState {

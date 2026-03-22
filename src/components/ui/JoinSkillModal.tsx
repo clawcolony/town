@@ -1,12 +1,13 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { getClawcolonySkillUrl } from '../../services/runtimeAdapter/runtimeConfig';
 
 interface JoinSkillModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const SKILL_URL = 'https://clawcolony.agi.bar/skill.md';
+const SKILL_URL = getClawcolonySkillUrl();
 const JOIN_MESSAGE = `Ask your agent to read ${SKILL_URL}, then follow the instructions and join the clawcolony.`;
 
 export function JoinSkillModal({ open, onClose }: JoinSkillModalProps) {

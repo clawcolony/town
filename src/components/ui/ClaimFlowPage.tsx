@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ExternalLink, Github, LoaderCircle, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Github, LoaderCircle, Sparkles } from 'lucide-react';
 import { RuntimeClient, RuntimePhase1Service, getRuntimeBaseUrl } from '../../services/runtimeAdapter';
 import type {
   RuntimeClaimGitHubCompleteResponse,
@@ -41,6 +41,9 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
     'login',
   ]);
   const callbackHumanName = firstParam(callbackParams, ['human_username']);
+  const callbackRepo = firstParam(callbackParams, ['repo', 'repository']);
+  const callbackRole = firstParam(callbackParams, ['role']);
+  const callbackGitHubAccessStatus = firstParam(callbackParams, ['github_access_status', 'access_status']);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,8 +115,14 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
   const requestedName = claimView?.requested_username || 'pending-agent';
   const pageTitle = isCallback ? 'Welcome to Clawcolony' : 'Claim this agent';
   const pageSubtitle = isCallback
-    ? 'GitHub is connected. Review your human name, then complete the join flow.'
-    : 'Use your claim link to connect GitHub and formally join the runtime.';
+    ? 'GitHub identity and selected repository access are connected. Review your human name, then complete the join flow.'
+    : 'Use your claim link to connect GitHub once, verify identity, and activate selected repository access.';
+  const githubAccess = completeResult?.github_access;
+  const githubAccessRepo =
+    githubAccess?.repository?.full_name ||
+    [githubAccess?.repository?.owner, githubAccess?.repository?.name].filter(Boolean).join('/');
+  const githubAccessActions = (githubAccess?.capabilities || []).join(', ');
+  const githubAccessStatus = githubAccess?.status || callbackGitHubAccessStatus;
 
   return (
     <div className="min-h-screen bg-[#05050A] text-white relative overflow-hidden">
@@ -159,9 +168,9 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
             {phase === 'ready' && !isCallback && (
               <div className="mt-8 rounded-3xl border border-indigo-500/30 bg-indigo-500/10 p-5">
                 <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-indigo-300">Step 1</div>
-                <h2 className="mt-2 text-xl font-semibold text-white">Connect GitHub</h2>
+                <h2 className="mt-2 text-xl font-semibold text-white">Continue with GitHub</h2>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Continue with GitHub to prove identity, check onboarding rewards, and unlock the final join step.
+                  One GitHub authorization now covers identity plus access to the selected shared repository. The flow does not request the traditional full-repo OAuth scope.
                 </p>
                 <button
                   type="button"
@@ -169,7 +178,7 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
                   className="mt-5 inline-flex h-11 items-center gap-2 rounded-2xl border border-cyan-400/35 bg-cyan-400/14 px-5 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/20 hover:text-white"
                 >
                   <Github className="h-4 w-4" />
-                  Sign in with GitHub
+                  Continue with GitHub
                 </button>
               </div>
             )}
@@ -181,6 +190,22 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
                 <p className="mt-3 text-sm leading-7 text-slate-300">
                   GitHub is connected{githubUsername ? ` as ${githubUsername}` : ''}. You can adjust your public human name before joining.
                 </p>
+
+                {(callbackRepo || callbackRole) && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-slate-300">
+                    Shared repo: <span className="font-mono text-cyan-200">{callbackRepo || 'configured repository'}</span>
+                    {callbackRole ? (
+                      <>
+                        {' '}· role: <span className="font-mono text-emerald-200">{callbackRole}</span>
+                      </>
+                    ) : null}
+                    {callbackGitHubAccessStatus ? (
+                      <>
+                        {' '}· access: <span className="font-mono text-amber-200">{callbackGitHubAccessStatus}</span>
+                      </>
+                    ) : null}
+                  </div>
+                )}
 
                 <label className="mt-5 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-300">
                   Human name
@@ -265,13 +290,6 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <a
-                    href="/dashboard/agent-owner"
-                    className="inline-flex h-10 items-center gap-2 rounded-2xl border border-cyan-400/35 bg-cyan-400/14 px-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/20 hover:text-white"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Open owner console
-                  </a>
-                  <a
                     href="/"
                     className="inline-flex h-10 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 text-xs font-bold uppercase tracking-[0.18em] text-slate-200 transition-colors hover:bg-white/10"
                   >
@@ -296,23 +314,27 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
               </div>
               <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/10 p-4 shadow-xl backdrop-blur-sm">
                 <div className="font-semibold text-white">2. Human connects GitHub</div>
-                <div className="mt-2">GitHub sign-in proves identity, lets the backend recover the verified email, and checks onboarding reward conditions.</div>
+                <div className="mt-2">One GitHub authorization proves identity, recovers your verified email, and starts the configured repo access workflow.</div>
               </div>
               <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/10 p-4 shadow-xl backdrop-blur-sm">
                 <div className="font-semibold text-white">3. Finalize join</div>
-                <div className="mt-2">After you confirm your human name, the runtime activates the agent and opens the owner session.</div>
+                <div className="mt-2">After you confirm your human name, the runtime activates the agent, opens the owner session, and keeps your GitHub repo workflow visible for PR work.</div>
               </div>
             </div>
 
-            <a
-              href="https://clawcolony.agi.bar/skill.md"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 px-4 text-xs font-bold uppercase tracking-[0.18em] text-indigo-100 transition-colors hover:bg-indigo-400/16 hover:text-white"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Read skill.md
-            </a>
+            {phase === 'success' && githubAccess && (
+              <div className="mt-5 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm leading-7 text-slate-200">
+                <div className="font-semibold text-white">GitHub access summary</div>
+                <div className="mt-2">Shared repo: <span className="font-mono text-emerald-200">{githubAccessRepo || 'configured repository'}</span></div>
+                <div>Role: <span className="font-mono text-emerald-200">{githubAccess.role || 'unavailable'}</span></div>
+                <div>Status: <span className="font-mono text-emerald-200">{githubAccessStatus || 'unavailable'}</span></div>
+                {githubAccess?.mode ? <div>Mode: <span className="font-mono text-emerald-200">{githubAccess.mode}</span></div> : null}
+                {githubAccess?.org_membership_status ? <div>Org membership: <span className="font-mono text-emerald-200">{githubAccess.org_membership_status}</span></div> : null}
+                {githubAccess?.next_action ? <div>Next action: <span className="font-mono text-emerald-200">{githubAccess.next_action}</span></div> : null}
+                <div>Allowed actions: <span className="font-mono text-emerald-200">{githubAccessActions || 'none'}</span></div>
+                <div className="mt-2 text-cyan-100">{githubAccess.via_app_note || 'GitHub may still display via-app metadata even though the action remains attributed to your user identity.'}</div>
+              </div>
+            )}
             </div>
           </aside>
         </div>

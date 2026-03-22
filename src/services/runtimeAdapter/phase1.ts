@@ -15,6 +15,7 @@ import type {
   RuntimeClaimGitHubCompleteResponse,
   RuntimeClaimGitHubStartResponse,
   RuntimeClaimViewResponse,
+  RuntimeGitHubAccessStatusResponse,
   RuntimeColonyChronicleItem,
   RuntimeColonyChronicleResponse,
   RuntimeColonyStatus,
@@ -193,6 +194,18 @@ export class RuntimePhase1Service {
     payload: RuntimeClaimGitHubCompletePayload,
   ): Promise<RuntimeClaimGitHubCompleteResponse> {
     return this.client.post<RuntimeClaimGitHubCompleteResponse>('/api/v1/claims/github/complete', payload);
+  }
+
+  async getGitHubAccessStatus(): Promise<RuntimeGitHubAccessStatusResponse> {
+    return this.client.get<RuntimeGitHubAccessStatusResponse>('/api/v1/github-access/status');
+  }
+
+  async startGitHubAccess(): Promise<RuntimeClaimGitHubStartResponse> {
+    return this.client.post<RuntimeClaimGitHubStartResponse>('/api/v1/github-access/start');
+  }
+
+  async disconnectGitHubAccess(): Promise<{ ok?: boolean; status?: string }> {
+    return this.client.delete<{ ok?: boolean; status?: string }>('/api/v1/github-access');
   }
 
   async getChronicleFeed(params: {

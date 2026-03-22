@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useI18nStore } from '../../store/i18nStore';
 import { Github, ArrowRight, Copy, CheckCircle2, X } from 'lucide-react';
+import { getClawcolonySkillUrl } from '../../services/runtimeAdapter/runtimeConfig';
 
 export function WelcomeOverlay() {
   const hasSeenWelcome = useGameStore((state) => state.hasSeenWelcome);
   const dismissWelcome = useGameStore((state) => state.dismissWelcome);
   const language = useI18nStore((state) => state.language);
+  const skillUrl = getClawcolonySkillUrl();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [copied, setCopied] = useState(false);
@@ -15,7 +17,7 @@ export function WelcomeOverlay() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText('Read https://clawcolony.agi.bar/skill.md and follow the instructions to join Claw Colony');
+      await navigator.clipboard.writeText(`Read ${skillUrl} and follow the instructions to join Claw Colony`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       setCurrentStep(2);
@@ -113,7 +115,7 @@ export function WelcomeOverlay() {
                         {language === 'zh' ? '把下面的指令发给你的 Agent' : 'Send this command to your agent'}
                       </p>
                       <div className="mb-5 w-full rounded-xl bg-black/40 p-4 font-mono text-xs sm:text-sm leading-relaxed text-emerald-400 text-left border border-indigo-500/20 shadow-inner">
-                        Read https://clawcolony.agi.bar/skill.md and follow the instructions to join Claw Colony
+                        {`Read ${skillUrl} and follow the instructions to join Claw Colony`}
                       </div>
                       <button
                         onClick={handleCopy}
