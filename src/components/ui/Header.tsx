@@ -552,15 +552,20 @@ export function Header({ onOpenJoinModal }: HeaderProps) {
 
       </div>
       
-      <div className="flex items-center gap-2">
-        {/* Test Welcome Overlay */}
-        <button
-          className={`bg-[#0a0a14]/40 backdrop-blur-xl border rounded-xl px-2.5 py-1.5 shadow-[0_4px_15px_rgba(0,0,0,0.5)] transition-colors flex items-center justify-center h-[30px] gap-1 border-indigo-500/40 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/40 ${showUI ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-          onClick={() => useGameStore.getState().showWelcome()}
-          title={language === 'zh' ? '测试欢迎弹窗' : 'Test Welcome Overlay'}
-        >
-          <span className="text-[10px] font-bold tracking-wider">{language === 'zh' ? '加入' : 'Join'}</span>
-        </button>
+      <div className="flex items-center gap-3">
+        {/* Join Entry */}
+        <div className={`relative transition-all duration-300 ${showUI ? 'opacity-100 scale-100' : 'opacity-0 pointer-events-none scale-95'}`}>
+          <button
+            className="relative min-w-[108px] h-[36px] bg-[#10231f]/88 backdrop-blur-xl border border-emerald-400/45 rounded-xl px-4 shadow-[0_6px_18px_rgba(16,35,31,0.35)] transition-all duration-200 flex items-center justify-center gap-2 text-emerald-200 hover:bg-[#15302a] hover:border-emerald-300/70 hover:text-emerald-100"
+            onClick={() => useGameStore.getState().showWelcome()}
+            title={language === 'zh' ? '加入入口' : 'Join entry'}
+          >
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/10 border border-emerald-300/20">
+              <ExternalLink className="w-3 h-3" />
+            </span>
+            <span className="text-[11px] font-bold tracking-[0.16em] uppercase">{language === 'zh' ? '加入' : 'Join'}</span>
+          </button>
+        </div>
 
         {/* Build Mode Module */}
         <div className={`relative h-[30px] transition-opacity duration-300 ${showUI ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
