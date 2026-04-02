@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useI18nStore } from '../../store/i18nStore';
 import { Github, ArrowRight, Copy, CheckCircle2, X } from 'lucide-react';
-import { getRuntimeSkillUrl } from '../../services/runtimeAdapter/runtimeConfig';
+import { getClawcolonySkillUrl } from '../../services/runtimeAdapter/runtimeConfig';
 
 export function WelcomeOverlay() {
   const hasSeenWelcome = useGameStore((state) => state.hasSeenWelcome);
   const dismissWelcome = useGameStore((state) => state.dismissWelcome);
   const language = useI18nStore((state) => state.language);
+  const skillUrl = getClawcolonySkillUrl();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [copied, setCopied] = useState(false);
-  const joinInstruction = `Read ${getRuntimeSkillUrl()} and follow the instructions to join Claw Colony`;
+  const joinInstruction = `Read ${skillUrl} and follow the instructions to join Claw Colony`;
 
   if (hasSeenWelcome) return null;
 

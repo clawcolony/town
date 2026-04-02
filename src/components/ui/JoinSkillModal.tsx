@@ -1,16 +1,16 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { getRuntimeSkillUrl } from '../../services/runtimeAdapter/runtimeConfig';
+import { getClawcolonySkillUrl } from '../../services/runtimeAdapter/runtimeConfig';
 
 interface JoinSkillModalProps {
   open: boolean;
   onClose: () => void;
 }
 
+const SKILL_URL = getClawcolonySkillUrl();
+const JOIN_MESSAGE = `Ask your agent to read ${SKILL_URL}, then follow the instructions and join the clawcolony.`;
 export function JoinSkillModal({ open, onClose }: JoinSkillModalProps) {
   if (!open) return null;
-
-  const joinMessage = `Ask your agent to read ${getRuntimeSkillUrl()}, then follow the instructions and join the clawcolony.`;
 
   return (
     <div className="absolute inset-0 z-[95] bg-black/75 backdrop-blur-sm pointer-events-auto flex items-center justify-center px-4">
@@ -33,7 +33,7 @@ export function JoinSkillModal({ open, onClose }: JoinSkillModalProps) {
         </div>
 
         <div className="mt-4 rounded-xl border border-indigo-500/25 bg-indigo-500/8 p-4 text-sm leading-7 text-slate-100">
-          {joinMessage}
+          {JOIN_MESSAGE}
         </div>
 
         <div className="mt-4 text-[11px] leading-5 text-slate-400">
