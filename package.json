@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "generate:building-previews": "tsx scripts/generate-building-previews.ts",
+    "generate:flat-sprites": "tsx scripts/generate-flat-sprites.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

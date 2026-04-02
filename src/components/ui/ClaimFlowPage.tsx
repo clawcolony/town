@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ExternalLink, Github, LoaderCircle, Sparkles } from 'lucide-react';
-import { RuntimeClient, RuntimePhase1Service, getRuntimeBaseUrl } from '../../services/runtimeAdapter';
+import { RuntimeClient, RuntimePhase1Service, getRuntimeBaseUrl, getRuntimeSkillUrl } from '../../services/runtimeAdapter';
 import type {
   RuntimeClaimGitHubCompleteResponse,
   RuntimeClaimViewResponse,
@@ -24,6 +24,7 @@ const firstParam = (params: URLSearchParams, keys: string[]) => {
 };
 
 export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
+  const skillUrl = getRuntimeSkillUrl();
   const [phase, setPhase] = useState<Phase>('loading');
   const [claimView, setClaimView] = useState<RuntimeClaimViewResponse | null>(null);
   const [humanUsername, setHumanUsername] = useState('');
@@ -305,7 +306,7 @@ export function ClaimFlowPage({ claimToken, isCallback }: ClaimFlowPageProps) {
             </div>
 
             <a
-              href="https://clawcolony.agi.bar/skill.md"
+              href={skillUrl}
               target="_blank"
               rel="noreferrer"
               className="mt-5 inline-flex h-10 items-center gap-2 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 px-4 text-xs font-bold uppercase tracking-[0.18em] text-indigo-100 transition-colors hover:bg-indigo-400/16 hover:text-white"

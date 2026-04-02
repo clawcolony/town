@@ -70,11 +70,11 @@ export const Tile = React.memo(function Tile({
   }
   
   const addedHeight = blocksCount * 0.5;
-  const baseHeight = 0.5;
+  const baseHeight = 0.018;
   const aboveGroundHeight = isBuildingOccupied ? 0 : elevation + addedHeight;
-  const totalHeight = baseHeight + aboveGroundHeight;
-  const mergedPlotSize = isBuildingOccupied ? 1 : 1 - TILE_GAP;
-  const hidePlotEdges = isBuildingOccupied;
+  const totalHeight = baseHeight + Math.min(0.12, aboveGroundHeight * 0.035);
+  const mergedPlotSize = 1 - TILE_GAP;
+  const hidePlotEdges = false;
 
   const handleBuildPointerDown = (e: any) => {
     if (!isBuildMode) return;
@@ -94,9 +94,12 @@ export const Tile = React.memo(function Tile({
     if (isBuildMode && isPreviewed && isPreviewBlocked) return blockedPreviewFill;
     if (isBuildMode && isPreviewed && (builtCount > 0 || isBuildingOccupied)) return '#59575f';
     if (isBuildMode && isPreviewed) return tileState === 'unlocked' ? '#4d4b52' : '#403e45';
-    if (isBuildMode && hovered && (builtCount > 0 || isBuildingOccupied)) return '#514f57';
-    if (hovered && (builtCount > 0 || isBuildingOccupied)) return '#48464d';
-    if (builtCount > 0 || isBuildingOccupied) return roadColor;
+    if (isBuildMode && hovered && builtCount > 0) return '#514f57';
+    if (isBuildMode && hovered && isBuildingOccupied) return tileState === 'unlocked' ? '#434148' : '#37353b';
+    if (hovered && builtCount > 0) return '#48464d';
+    if (hovered && isBuildingOccupied) return tileState === 'unlocked' ? '#3d3b42' : '#313036';
+    if (builtCount > 0) return roadColor;
+    if (isBuildingOccupied) return tileState === 'unlocked' ? dirtColor : grassColor;
     if (tileState === 'pending_unlock') return '#45434a';
     if (isBuildMode && hovered && pendingAsset) return '#5a5860';
     if (isBuildMode && hovered) return tileState === 'unlocked' ? '#434148' : '#37353b';
@@ -116,7 +119,8 @@ export const Tile = React.memo(function Tile({
     if (isBuildMode && isPreviewed && isPreviewBlocked) return blockedPreviewEdge;
     if (isBuildMode && isPreviewed && (builtCount > 0 || isBuildingOccupied)) return '#918d98';
     if (isBuildMode && isPreviewed) return tileState === 'unlocked' ? '#78747d' : '#646067';
-    if (builtCount > 0 || isBuildingOccupied) return roadEdgeColor;
+    if (builtCount > 0) return roadEdgeColor;
+    if (isBuildingOccupied) return tileState === 'unlocked' ? dirtEdgeColor : grassEdgeColor;
     if (tileState === 'pending_unlock') return '#727078';
     if (isBuildMode && hovered && pendingAsset) return '#87848c';
     if (isBuildMode && hovered) return tileState === 'unlocked' ? '#706d74' : '#5d5a61';
@@ -162,14 +166,14 @@ export const Tile = React.memo(function Tile({
         <mesh
           position={[
             ((pendingAsset.rotation % 180 === 0 ? pendingAsset.width : pendingAsset.length) - 1) / 2,
-            totalHeight + 0.05,
+            totalHeight + 0.02,
             ((pendingAsset.rotation % 180 === 0 ? pendingAsset.length : pendingAsset.width) - 1) / 2,
           ]}
+          rotation={[-Math.PI / 2, 0, 0]}
         >
-          <boxGeometry
+          <planeGeometry
             args={[
               Math.max(0.1, (pendingAsset.rotation % 180 === 0 ? pendingAsset.width : pendingAsset.length) - TILE_GAP),
-              0.1,
               Math.max(0.1, (pendingAsset.rotation % 180 === 0 ? pendingAsset.length : pendingAsset.width) - TILE_GAP),
             ]}
           />
@@ -180,20 +184,19 @@ export const Tile = React.memo(function Tile({
       {/* Plot (Underground) */}
       <group position={[0, baseHeight / 2, 0]}>
         <mesh 
+          position={[0, 0, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
           raycast={isBuildMode ? disableRaycast : undefined}
           onPointerOver={(e) => e.stopPropagation()}
           onPointerDown={handleBuildPointerDown}
           onPointerEnter={handleBuildPointerEnter}
         >
-          <boxGeometry args={[mergedPlotSize, baseHeight, mergedPlotSize]} />
-            <meshLambertMaterial 
-              color={getPlotColor()} 
-              flatShading
-            />
-          </mesh>
+          <planeGeometry args={[mergedPlotSize, mergedPlotSize]} />
+          <meshBasicMaterial color={getPlotColor()} />
+        </mesh>
         {!hidePlotEdges && (
-          <lineSegments raycast={isBuildMode ? disableRaycast : undefined}>
-            <edgesGeometry args={[new THREE.BoxGeometry(mergedPlotSize, baseHeight, mergedPlotSize)]} />
+          <lineSegments raycast={isBuildMode ? disableRaycast : undefined} position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <edgesGeometry args={[new THREE.PlaneGeometry(mergedPlotSize, mergedPlotSize)]} />
             <lineBasicMaterial color={getPlotEdgeColor()} />
           </lineSegments>
         )}
@@ -201,21 +204,19 @@ export const Tile = React.memo(function Tile({
 
       {/* Building (Above Ground) */}
       {aboveGroundHeight > 0 && (
-        <group position={[0, baseHeight + aboveGroundHeight / 2, 0]}>
+        <group position={[0, totalHeight, 0]}>
           <mesh 
+            rotation={[-Math.PI / 2, 0, 0]}
             raycast={isBuildMode ? disableRaycast : undefined}
             onPointerOver={(e) => e.stopPropagation()}
             onPointerDown={handleBuildPointerDown}
             onPointerEnter={handleBuildPointerEnter}
           >
-            <boxGeometry args={[1 - TILE_GAP, aboveGroundHeight, 1 - TILE_GAP]} />
-            <meshLambertMaterial 
-              color={getBuildingColor()} 
-              flatShading
-            />
+            <planeGeometry args={[1 - TILE_GAP, 1 - TILE_GAP]} />
+            <meshBasicMaterial color={getBuildingColor()} transparent opacity={0.94} />
           </mesh>
-          <lineSegments raycast={isBuildMode ? disableRaycast : undefined}>
-            <edgesGeometry args={[new THREE.BoxGeometry(1 - TILE_GAP, aboveGroundHeight, 1 - TILE_GAP)]} />
+          <lineSegments raycast={isBuildMode ? disableRaycast : undefined} position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <edgesGeometry args={[new THREE.PlaneGeometry(1 - TILE_GAP, 1 - TILE_GAP)]} />
             <lineBasicMaterial color={getBuildingEdgeColor()} />
           </lineSegments>
         </group>

@@ -1,11 +1,10 @@
 import React, { useRef, useEffect } from 'react';
-import { OrbitControls, PerspectiveCamera, ContactShadows, GizmoHelper, GizmoViewcube, Billboard, Html } from '@react-three/drei';
+import { OrbitControls, OrthographicCamera } from '@react-three/drei';
 import { GridSystem } from './GridSystem';
 import { Building } from './Building';
 import { Lobster } from './Lobster';
 import { CustomAssetModel } from './CustomAssetModel';
-import { PostProcessing } from './PostProcessing';
-import { SceneEnvironment } from './SceneEnvironment';
+import { CanvasBillboardTag } from './CanvasBillboardTag';
 import { BUILDINGS, LOBSTERS, getElevation, getParcelId, getVisibleTerrainBounds, TILE_GAP, gridCoordToWorld } from '../../constants/gameData';
 import { useGameStore } from '../../store/gameStore';
 import { useI18nStore } from '../../store/i18nStore';
@@ -60,7 +59,6 @@ export function Scene() {
   const lobsterIdMapRef = useRef<Map<string, number>>(new Map());
   const lobsterPosMapRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const lastCameraLogAtRef = useRef<number>(0);
-  const centerSpotTarget = React.useMemo(() => new THREE.Object3D(), []);
   const [cameraPreset, setCameraPreset] = React.useState<CameraConfigEntry>(() => readCachedCameraConfig() ?? DEFAULT_CAMERA_CONFIG);
   const [hoveredTile, setHoveredTile] = React.useState<{ x: number; y: number } | null>(null);
   const [fullDetailLobsterCount, setFullDetailLobsterCount] = React.useState(() =>
@@ -92,22 +90,35 @@ export function Scene() {
     () => (gridCoordToWorld(visibleTerrainBounds.minY) + gridCoordToWorld(visibleTerrainBounds.maxY)) / 2,
     [visibleTerrainBounds.maxY, visibleTerrainBounds.minY],
   );
-  const terrainCenterWorldX = -terrainCenterLocalX;
-  const terrainCenterWorldZ = -terrainCenterLocalZ;
   const sceneSpan = Math.max(visibleGridWidth, visibleGridHeight) * (1 + TILE_GAP);
   const fallbackCameraPreset = React.useMemo<CameraConfigEntry>(
     () => ({
       position: {
-        x: sceneSpan * 1.35,
-        y: Math.max(7, sceneSpan * 0.6),
-        z: -sceneSpan * 1.15,
+        x: sceneSpan * 1.22,
+        y: Math.max(9, sceneSpan * 0.95),
+        z: -sceneSpan * 1.18,
       },
-      target: { x: 0, y: 0, z: 0 },
-      fov: 20,
+      target: { x: 0, y: 0.12, z: 0 },
+      fov: 24,
     }),
     [sceneSpan],
   );
-  const activeCameraPreset = cameraPreset ?? fallbackCameraPreset;
+  const activeCameraPreset = React.useMemo<CameraConfigEntry>(() => {
+    const preset = cameraPreset ?? fallbackCameraPreset;
+    return normalizeCameraConfig({
+      position: {
+        x: preset.position.x,
+        y: Math.max(7, preset.position.y),
+        z: preset.position.z,
+      },
+      target: {
+        x: preset.target.x,
+        y: 0.12,
+        z: preset.target.z,
+      },
+      fov: THREE.MathUtils.clamp(preset.fov * 2.1, 38, 60),
+    });
+  }, [cameraPreset, fallbackCameraPreset]);
   const initialCameraPosition = React.useMemo<[number, number, number]>(
     () => [activeCameraPreset.position.x, activeCameraPreset.position.y, activeCameraPreset.position.z],
     [activeCameraPreset],
@@ -116,9 +127,7 @@ export function Scene() {
     () => [activeCameraPreset.target.x, activeCameraPreset.target.y, activeCameraPreset.target.z],
     [activeCameraPreset],
   );
-  const initialCameraFov = activeCameraPreset.fov;
-  const contactShadowScale = Math.max(15, sceneSpan * 1.2);
-  const contactShadowFar = Math.max(10, sceneSpan);
+  const initialCameraZoom = activeCameraPreset.fov;
   const subPlotTileCount = 8;
   const subPlotTileOffsets = React.useMemo(
     () =>
@@ -294,7 +303,10 @@ export function Scene() {
 
     controls.target.set(preset.target.x, preset.target.y, preset.target.z);
     controls.object.position.set(preset.position.x, preset.position.y, preset.position.z);
-    if (controls.object instanceof THREE.PerspectiveCamera) {
+    if (controls.object instanceof THREE.OrthographicCamera) {
+      controls.object.zoom = preset.fov;
+      controls.object.updateProjectionMatrix();
+    } else if (controls.object instanceof THREE.PerspectiveCamera) {
       controls.object.zoom = 1;
       controls.object.fov = preset.fov;
       controls.object.updateProjectionMatrix();
@@ -534,11 +546,6 @@ export function Scene() {
     };
   }, []);
 
-  useEffect(() => {
-    centerSpotTarget.position.set(terrainCenterWorldX, -1, terrainCenterWorldZ);
-    centerSpotTarget.updateMatrixWorld();
-  }, [centerSpotTarget, terrainCenterWorldX, terrainCenterWorldZ]);
-
   // useEffect(() => {
   //   const controls = controlsRef.current;
   //   if (!controls) return;
@@ -572,15 +579,15 @@ export function Scene() {
       if (target) {
         const x = gridCoordToWorld(target.x);
         const z = gridCoordToWorld(target.y);
-        const y = getElevation(target.x, target.y) + ('extraBlocks' in target ? (target.extraBlocks ?? 0) * 0.5 : 0);
+        const y = ('extraBlocks' in target ? (target.extraBlocks ?? 0) * 0.02 : 0.12);
 
         // Target pos
         // We use bounding box center of the tile the target is on to perfectly center it
-        const targetPos = new THREE.Vector3(-x, y + 0.5, -z);
-        
-        // Change camera to look at the target, close to it
+        const targetPos = new THREE.Vector3(-x, y, -z);
+        const offset = controlsRef.current.object.position.clone().sub(controlsRef.current.target);
+
         controlsRef.current.target.copy(targetPos);
-        controlsRef.current.object.position.set(-x - 10, y + 10, -z - 10);
+        controlsRef.current.object.position.copy(targetPos.clone().add(offset));
         controlsRef.current.update();
         logCameraParams('focus-target', true);
         
@@ -613,7 +620,7 @@ export function Scene() {
         y: controls.target.y,
         z: controls.target.z,
       },
-      fov: controls.object instanceof THREE.PerspectiveCamera ? controls.object.fov : initialCameraFov,
+      fov: controls.object instanceof THREE.OrthographicCamera ? controls.object.zoom : initialCameraZoom,
     });
 
     setCameraPreset(nextPreset);
@@ -629,74 +636,65 @@ export function Scene() {
         console.error(error);
         toast.error(language === 'zh' ? '默认镜头保存失败' : 'Failed to save default camera');
       });
-  }, [initialCameraFov, language, saveInitialCameraSignal]);
+  }, [initialCameraZoom, language, saveInitialCameraSignal]);
 
   return (
     <>
-      <PerspectiveCamera makeDefault position={initialCameraPosition} fov={initialCameraFov} />
+      <OrthographicCamera makeDefault position={initialCameraPosition} zoom={initialCameraZoom} near={0.1} far={200} />
       <OrbitControls 
         ref={controlsRef}
-        enablePan={true} 
-        enableZoom={true} 
-        minPolarAngle={0} 
-        maxPolarAngle={Math.PI / 2.1}
+        enablePan={false}
+        enableRotate={false}
+        enableZoom={false}
         makeDefault
       />
       
-      <ambientLight intensity={0.78} color="#5e4b8b" />
-      <pointLight position={[-10, 20, -10]} intensity={2.8} color="#63e6ff" />
-      <pointLight position={[12, 10, 14]} intensity={1.9} color="#ff79d1" />
-      <hemisphereLight intensity={0.95} groundColor="#0c0716" color="#8759ff" />
-      <spotLight position={[15, 25, -10]} angle={0.4} penumbra={1} intensity={4.8} color="#c7f8ff" castShadow shadow-mapSize={[2048, 2048]} />
-      <primitive object={centerSpotTarget} />
-      <spotLight
-        position={[terrainCenterWorldX, 22, terrainCenterWorldZ]}
-        target={centerSpotTarget}
-        angle={0.3}
-        penumbra={0.9}
-        intensity={6.2}
-        distance={42}
-        decay={1.35}
-        color="#d9fbff"
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-      />
+      <ambientLight intensity={0.9} color="#f8fbff" />
       
-      <group rotation={[0, Math.PI, 0]} position={[0, -1.5, 0]}>
+      <group rotation={[0, Math.PI, 0]} position={[0, 0, 0]}>
         <GridSystem onHoverTileChange={setHoveredTile} />
         {underConstructionPlots.map((plot) => {
+          const plotHovered = hoveredTile
+            ? hoveredTile.x >= plot.minX && hoveredTile.x <= plot.maxX && hoveredTile.y >= plot.minY && hoveredTile.y <= plot.maxY
+            : false;
           return (
             <group key={plot.id} position={[plot.worldX, 0, plot.worldZ]} onPointerLeave={() => setHoveredTile(null)}>
               {subPlotTileOffsets.map((tile) => (
                 <mesh
                   key={`${plot.id}-${tile.row}-${tile.col}`}
-                  position={[tile.xOffset, 0.25, tile.zOffset]}
+                  position={[tile.xOffset, 0.012, tile.zOffset]}
+                  rotation={[-Math.PI / 2, 0, 0]}
                   onPointerOver={(e) => {
                     e.stopPropagation();
                     setHoveredTile({ x: plot.minX + tile.col, y: plot.minY + tile.row });
                   }}
                 >
-                  <boxGeometry args={[1 - TILE_GAP, 0.5, 1 - TILE_GAP]} />
-                  <meshLambertMaterial color="#2c2b31" flatShading />
+                  <planeGeometry args={[1 - TILE_GAP, 1 - TILE_GAP]} />
+                  <meshBasicMaterial color="#2c2b31" transparent opacity={0.92} />
                 </mesh>
               ))}
-              <lineSegments position={[0, 0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <lineSegments position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <edgesGeometry args={[new THREE.PlaneGeometry(subPlotTileCount, subPlotTileCount)]} />
                 <lineBasicMaterial color="#67e8f9" opacity={0.92} transparent />
               </lineSegments>
-              <Billboard follow lockX={false} lockY={false} lockZ={false}>
-                <Html transform scale={0.52} position={[0, 1.1, 0]}>
-                  <div className="pointer-events-none select-none rounded-lg border border-amber-400/50 bg-black/70 px-3 py-2 text-center shadow-[0_6px_18px_rgba(0,0,0,0.45)]">
-                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-amber-300">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
-                      {language === 'zh' ? '正在施工中...' : 'Under Construction...'}
-                    </div>
-                    <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-amber-500/20">
-                      <div className="h-full w-2/3 rounded-full bg-amber-300/80 animate-pulse" />
-                    </div>
-                  </div>
-                </Html>
-              </Billboard>
+              <CanvasBillboardTag
+                position={[0, 0.5, 0]}
+                height={plotHovered ? 0.34 : 0.32}
+                minWidth={248}
+                backgroundColor="rgba(0, 0, 0, 0.72)"
+                borderColor="rgba(251, 191, 36, 0.52)"
+                shadowColor="rgba(0, 0, 0, 0.45)"
+                accentDotColor="#fcd34d"
+                progress={0.68}
+                lines={[
+                  {
+                    text: language === 'zh' ? '正在施工中...' : 'Under Construction...',
+                    color: '#fcd34d',
+                    fontSize: 18,
+                    fontWeight: 700,
+                  },
+                ]}
+              />
             </group>
           );
         })}
@@ -713,38 +711,11 @@ export function Scene() {
             data={l}
             allowedTiles={availableLobsterTiles}
             onSelect={() => setSelectedLobsterId(l.id)}
-            renderModel={index < fullDetailLobsterCount}
+            renderModel={false}
           />
         ))}
       </group>
       
-      <ContactShadows
-        frames={1}
-        resolution={512}
-        scale={contactShadowScale}
-        blur={2}
-        opacity={0.25}
-        far={contactShadowFar}
-        color="#000000"
-      />
-      <PostProcessing />
-      <SceneEnvironment />
-
-      <GizmoHelper
-        alignment="bottom-left"
-        margin={[60, 180]}
-      >
-        {/* <group rotation={[0, Math.PI, 0]} onDoubleClick={(e) => { e.stopPropagation(); triggerCameraReset(); }}>
-          <GizmoViewcube 
-            faces={language === 'zh' ? ['右', '左', '上', '下', '前', '后'] : ['Right', 'Left', 'Top', 'Bottom', 'Front', 'Back']}
-            opacity={0.8}
-            color="#334155"
-            strokeColor="#475569"
-            textColor="#f8fafc"
-            hoverColor="#6366f1"
-          />
-        </group> */}
-      </GizmoHelper>
     </>
   );
 }

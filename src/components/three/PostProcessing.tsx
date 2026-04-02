@@ -12,12 +12,12 @@ const cyberGradeShader = {
     shadowTint: { value: new THREE.Color('#221038') },
     highlightTint: { value: new THREE.Color('#8ef9ff') },
     midTint: { value: new THREE.Color('#ff8ae3') },
-    contrast: { value: 1.15 },
-    saturation: { value: 1.18 },
-    vignetteStrength: { value: 0.3 },
-    aberration: { value: 0.0031 },
-    glowLift: { value: 0.24 },
-    scanlineStrength: { value: 0.05 },
+    contrast: { value: 1.04 },
+    saturation: { value: 1.04 },
+    vignetteStrength: { value: 0.16 },
+    aberration: { value: 0.0008 },
+    glowLift: { value: 0.04 },
+    scanlineStrength: { value: 0.015 },
     time: { value: 0 },
   },
   vertexShader: `
@@ -91,7 +91,7 @@ export function PostProcessing() {
   const composer = React.useMemo(() => new EffectComposer(gl), [gl]);
   const renderPass = React.useMemo(() => new RenderPass(scene, camera), [scene, camera]);
   const bloomPass = React.useMemo(
-    () => new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 2.85, 1.08, 0.02),
+    () => new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.18, 0.28, 0.92),
     [size.height, size.width],
   );
   const gradePass = React.useMemo(() => new ShaderPass(cyberGradeShader), []);
@@ -101,7 +101,7 @@ export function PostProcessing() {
     const previousExposure = gl.toneMappingExposure;
 
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.15;
+    gl.toneMappingExposure = 1;
 
     composer.addPass(renderPass);
     composer.addPass(bloomPass);

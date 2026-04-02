@@ -238,9 +238,10 @@ export function GridSystem({ onHoverTileChange }: GridSystemProps) {
       for (let x = visibleTerrainBounds.minX; x <= visibleTerrainBounds.maxX; x++) {
         const posX = gridCoordToWorld(x);
         const posZ = gridCoordToWorld(y);
-        const baseHeight = 0.5;
+        const baseHeight = 0.01;
         
-        dummy.position.set(posX, baseHeight / 2, posZ);
+        dummy.position.set(posX, baseHeight, posZ);
+        dummy.rotation.set(-Math.PI / 2, 0, 0);
         const tileParcelState = getTileParcelState(x, y);
         const isRoadTile = buildingFootprintTileSet.has(`${x},${y}`) || builtTileSet.has(`${x},${y}`);
         const hoveredParcelId = hoveredTile ? getParcelId(hoveredTile.x, hoveredTile.y) : null;
@@ -250,7 +251,7 @@ export function GridSystem({ onHoverTileChange }: GridSystemProps) {
         if (activeTilesMap.has(`${x},${y}`)) {
           dummy.scale.set(0, 0, 0);
         } else {
-          dummy.scale.set(1, 1, 1);
+          dummy.scale.set(1 - TILE_GAP, 1 - TILE_GAP, 1);
         }
         
         dummy.updateMatrix();
@@ -426,8 +427,8 @@ export function GridSystem({ onHoverTileChange }: GridSystemProps) {
         onPointerMove={handlePointerMove}
         onPointerDown={handlePointerDown}
       >
-        <boxGeometry args={[1 - TILE_GAP, 0.5, 1 - TILE_GAP]} />
-        <meshLambertMaterial flatShading />
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial />
       </instancedMesh>
 
       {/* Active tiles (built, pending, hovered, elevated) */}

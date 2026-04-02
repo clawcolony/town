@@ -7,3 +7,4 @@ export const getRuntimeBaseUrl = (): string => {
   return DEFAULT_RUNTIME_BASE_URL;
 };
 
+export const getRuntimeSkillUrl = (): string => `${getRuntimeBaseUrl().replace(/\/$/, '')}/skill.md`;
