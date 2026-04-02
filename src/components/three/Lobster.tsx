@@ -97,8 +97,14 @@ const chooseHomeTile = (
   );
   const angleSeed = hashString(`${lobsterId}:${lobsterName}:angle`);
   const radiusSeed = hashString(`${lobsterName}:${lobsterId}:radius`);
+  const zoneSeed = hashString(`${lobsterId}:${lobsterName}:zone`) % 100;
   const desiredAngle = ((angleSeed % 3600) / 3600) * Math.PI * 2;
-  const desiredRadius = 0.66 + ((radiusSeed % 1000) / 1000) * 0.24;
+  const radiusJitter = (radiusSeed % 1000) / 1000;
+  const desiredRadius = zoneSeed < 34
+    ? 0.14 + radiusJitter * 0.2
+    : zoneSeed < 76
+      ? 0.34 + radiusJitter * 0.24
+      : 0.6 + radiusJitter * 0.18;
 
   const wrappedAngleDiff = (a: number, b: number) => {
     const diff = Math.abs(a - b);
@@ -198,7 +204,7 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   }, [sleeping]);
 
   useEffect(() => {
-    const preferred = homeTile;
+    const preferred = spawnTile;
     let claimed = preferred;
     if (!claimTile(data.id, preferred)) {
       claimed = fallbackTileFor(data.id, preferred, allowedTiles);
@@ -209,7 +215,7 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
     return () => {
       releaseClaim(data.id, targetRef.current);
     };
-  }, [allowedTiles, data.id, homeTile]);
+  }, [allowedTiles, data.id, spawnTile]);
 
   useEffect(() => {
     if (sleeping) return undefined;
