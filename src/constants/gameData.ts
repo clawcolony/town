@@ -278,7 +278,8 @@ export const LOBSTERS: LobsterData[] = [
 
 export const BASE_GRID_SIZE = 8;
 export const PARCEL_SIZE = 1;
-const INITIAL_UNLOCK_SIZE = 16;
+// Unlock the surrounding ring by default so the outer plaza is playable terrain.
+const INITIAL_UNLOCK_SIZE = 32;
 const VISIBLE_LOCKED_TILE_RINGS = 0;
 const MAX_EXPANSION_TILE_RINGS = 8;
 

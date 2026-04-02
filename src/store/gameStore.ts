@@ -119,6 +119,7 @@ interface GameState {
   addPendingBuildTile: (x: number, y: number) => void;
   addPendingBuildTiles: (tiles: {x: number, y: number}[]) => void;
   queueParcelUnlock: (x: number, y: number) => void;
+  ensureUnlockedParcels: (parcelIds: string[]) => void;
   updateBuildingLayoutOverride: (id: string, patch: Partial<BuildingLayoutOverride>) => void;
   commitBuildingLayoutOverride: (id: string) => void;
   resetBuildingLayoutOverride: (id: string) => void;
@@ -394,6 +395,16 @@ export const useGameStore = create<GameState>()(
 
     return {
       pendingUnlockParcelIds: [...state.pendingUnlockParcelIds, parcelId],
+    };
+  }),
+  ensureUnlockedParcels: (parcelIds) => set((state) => {
+    if (parcelIds.length === 0) return state;
+    const nextUnlocked = Array.from(new Set([...state.unlockedParcelIds, ...parcelIds]));
+    if (nextUnlocked.length === state.unlockedParcelIds.length) return state;
+    const unlockedSet = new Set(nextUnlocked);
+    return {
+      unlockedParcelIds: nextUnlocked,
+      pendingUnlockParcelIds: state.pendingUnlockParcelIds.filter((parcelId) => !unlockedSet.has(parcelId)),
     };
   }),
   updateBuildingLayoutOverride: (id, patch) => set((state) => {

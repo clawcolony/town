@@ -4,8 +4,7 @@ import { GridSystem } from './GridSystem';
 import { Building } from './Building';
 import { Lobster } from './Lobster';
 import { CustomAssetModel } from './CustomAssetModel';
-import { CanvasBillboardTag } from './CanvasBillboardTag';
-import { BUILDINGS, LOBSTERS, getElevation, getParcelId, getVisibleTerrainBounds, TILE_GAP, gridCoordToWorld } from '../../constants/gameData';
+import { BUILDINGS, LOBSTERS, getElevation, getInitialUnlockedParcelIds, getParcelId, getVisibleTerrainBounds, TILE_GAP, gridCoordToWorld } from '../../constants/gameData';
 import { useGameStore } from '../../store/gameStore';
 import { useI18nStore } from '../../store/i18nStore';
 import {
@@ -32,9 +31,7 @@ interface BlockRegion {
   maxX: number;
   minY: number;
   maxY: number;
-  worldX: number;
-  worldZ: number;
-  kind: 'core' | 'construction';
+  label: string;
 }
 
 export function Scene() {
@@ -52,6 +49,7 @@ export function Scene() {
   const triggerCameraReset = useGameStore(state => state.triggerCameraReset);
   const customAssets = useGameStore(state => state.customAssets);
   const moveCustomAssetToPending = useGameStore(state => state.moveCustomAssetToPending);
+  const ensureUnlockedParcels = useGameStore(state => state.ensureUnlockedParcels);
   const setHoverBlockInfo = useGameStore(state => state.setHoverBlockInfo);
   const language = useI18nStore(state => state.language);
   const unlockedParcelIdSet = React.useMemo(() => new Set(unlockedParcelIds), [unlockedParcelIds]);
@@ -129,83 +127,30 @@ export function Scene() {
   );
   const initialCameraZoom = activeCameraPreset.fov;
   const subPlotTileCount = 8;
-  const subPlotTileOffsets = React.useMemo(
-    () =>
-      Array.from({ length: subPlotTileCount * subPlotTileCount }, (_, index) => {
-        const row = Math.floor(index / subPlotTileCount);
-        const col = index % subPlotTileCount;
-        return {
-          row,
-          col,
-          xOffset: col - (subPlotTileCount - 1) / 2,
-          zOffset: row - (subPlotTileCount - 1) / 2,
-        };
-      }),
-    [subPlotTileCount],
-  );
-  const coreBlocks = React.useMemo<BlockRegion[]>(
+  const numberedBlocks = React.useMemo(
     () => {
-      const coreMinX = visibleTerrainBounds.minX;
-      const coreMinY = visibleTerrainBounds.minY;
-      const coreWestMinX = coreMinX;
-      const coreEastMinX = coreMinX + subPlotTileCount;
-      const coreSouthMinY = coreMinY;
-      const coreNorthMinY = coreMinY + subPlotTileCount;
-      const buildCoreBlock = (id: string, minX: number, minY: number): BlockRegion => ({
-        id,
-        minX,
-        maxX: minX + subPlotTileCount - 1,
-        minY,
-        maxY: minY + subPlotTileCount - 1,
-        worldX: gridCoordToWorld(minX + (subPlotTileCount - 1) / 2),
-        worldZ: gridCoordToWorld(minY + (subPlotTileCount - 1) / 2),
-        kind: 'core',
-      });
-      return [
-        buildCoreBlock('core-sw', coreWestMinX, coreSouthMinY),
-        buildCoreBlock('core-se', coreEastMinX, coreSouthMinY),
-        buildCoreBlock('core-nw', coreWestMinX, coreNorthMinY),
-        buildCoreBlock('core-ne', coreEastMinX, coreNorthMinY),
-      ];
-    },
-    [subPlotTileCount, visibleTerrainBounds.minX, visibleTerrainBounds.minY],
-  );
-  const underConstructionPlots = React.useMemo<BlockRegion[]>(
-    () => {
-      const coreMinX = visibleTerrainBounds.minX;
-      const coreMinY = visibleTerrainBounds.minY;
       const blocks: BlockRegion[] = [];
-      for (let blockRow = -1; blockRow <= 2; blockRow += 1) {
-        for (let blockCol = -1; blockCol <= 2; blockCol += 1) {
-          const isCoreCol = blockCol >= 0 && blockCol <= 1;
-          const isCoreRow = blockRow >= 0 && blockRow <= 1;
-          if (isCoreCol && isCoreRow) continue;
+      const blockCols = Math.ceil(visibleGridWidth / subPlotTileCount);
+      const blockRows = Math.ceil(visibleGridHeight / subPlotTileCount);
 
-          const minX = coreMinX + blockCol * subPlotTileCount;
-          const minY = coreMinY + blockRow * subPlotTileCount;
+      for (let row = 0; row < blockRows; row += 1) {
+        for (let col = 0; col < blockCols; col += 1) {
+          const minX = visibleTerrainBounds.minX + col * subPlotTileCount;
+          const minY = visibleTerrainBounds.minY + row * subPlotTileCount;
           blocks.push({
-            id: `uc-r${blockRow + 2}-c${blockCol + 2}`,
+            id: `block-r${row + 1}-c${col + 1}`,
             minX,
-            maxX: minX + subPlotTileCount - 1,
+            maxX: Math.min(visibleTerrainBounds.maxX, minX + subPlotTileCount - 1),
             minY,
-            maxY: minY + subPlotTileCount - 1,
-            worldX: gridCoordToWorld(minX + (subPlotTileCount - 1) / 2),
-            worldZ: gridCoordToWorld(minY + (subPlotTileCount - 1) / 2),
-            kind: 'construction',
+            maxY: Math.min(visibleTerrainBounds.maxY, minY + subPlotTileCount - 1),
+            label: `B${String(blocks.length + 1).padStart(2, '0')}`,
           });
         }
       }
+
       return blocks;
     },
-    [subPlotTileCount, visibleTerrainBounds.minX, visibleTerrainBounds.minY],
-  );
-  const numberedBlocks = React.useMemo(
-    () =>
-      [...coreBlocks, ...underConstructionPlots].map((block, index) => ({
-        ...block,
-        label: `B${String(index + 1).padStart(2, '0')}`,
-      })),
-    [coreBlocks, underConstructionPlots],
+    [subPlotTileCount, visibleGridHeight, visibleGridWidth, visibleTerrainBounds.maxX, visibleTerrainBounds.maxY, visibleTerrainBounds.minX, visibleTerrainBounds.minY],
   );
   const currentHoverInfo = React.useMemo(() => {
     if (!hoveredTile) return null;
@@ -234,6 +179,10 @@ export function Scene() {
       setHoverBlockInfo(null);
     };
   }, [currentHoverInfo, setHoverBlockInfo]);
+
+  useEffect(() => {
+    ensureUnlockedParcels(getInitialUnlockedParcelIds());
+  }, [ensureUnlockedParcels]);
   const lobsterBlockedTileSet = React.useMemo(() => {
     const blocked = new Set<string>();
     builtTiles.forEach((tile) => blocked.add(`${tile.x},${tile.y}`));
@@ -653,52 +602,7 @@ export function Scene() {
       
       <group rotation={[0, Math.PI, 0]} position={[0, 0, 0]}>
         <GridSystem onHoverTileChange={setHoveredTile} />
-        {underConstructionPlots.map((plot) => {
-          const plotHovered = hoveredTile
-            ? hoveredTile.x >= plot.minX && hoveredTile.x <= plot.maxX && hoveredTile.y >= plot.minY && hoveredTile.y <= plot.maxY
-            : false;
-          return (
-            <group key={plot.id} position={[plot.worldX, 0, plot.worldZ]} onPointerLeave={() => setHoveredTile(null)}>
-              {subPlotTileOffsets.map((tile) => (
-                <mesh
-                  key={`${plot.id}-${tile.row}-${tile.col}`}
-                  position={[tile.xOffset, 0.012, tile.zOffset]}
-                  rotation={[-Math.PI / 2, 0, 0]}
-                  onPointerOver={(e) => {
-                    e.stopPropagation();
-                    setHoveredTile({ x: plot.minX + tile.col, y: plot.minY + tile.row });
-                  }}
-                >
-                  <planeGeometry args={[1 - TILE_GAP, 1 - TILE_GAP]} />
-                  <meshBasicMaterial color="#2c2b31" transparent opacity={0.92} />
-                </mesh>
-              ))}
-              <lineSegments position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <edgesGeometry args={[new THREE.PlaneGeometry(subPlotTileCount, subPlotTileCount)]} />
-                <lineBasicMaterial color="#67e8f9" opacity={0.92} transparent />
-              </lineSegments>
-              <CanvasBillboardTag
-                position={[0, 0.5, 0]}
-                height={plotHovered ? 0.34 : 0.32}
-                minWidth={248}
-                backgroundColor="rgba(0, 0, 0, 0.72)"
-                borderColor="rgba(251, 191, 36, 0.52)"
-                shadowColor="rgba(0, 0, 0, 0.45)"
-                accentDotColor="#fcd34d"
-                progress={0.68}
-                lines={[
-                  {
-                    text: language === 'zh' ? '正在施工中...' : 'Under Construction...',
-                    color: '#fcd34d',
-                    fontSize: 18,
-                    fontWeight: 700,
-                  },
-                ]}
-              />
-            </group>
-          );
-        })}
-        
+
         {buildings.map(b => <Building key={b.id} data={b} />)}
         {customAssets.map(a => (
           <React.Suspense key={a.id} fallback={null}>

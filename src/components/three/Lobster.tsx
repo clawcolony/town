@@ -21,6 +21,17 @@ const lobsterTileClaims = new Map<string, number>();
 
 const tileKey = (x: number, y: number) => `${x},${y}`;
 const sameTile = (a: { x: number; y: number }, b: { x: number; y: number }) => a.x === b.x && a.y === b.y;
+const manhattanDistance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+const hashString = (value: string) => {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
 
 const releaseClaim = (lobsterId: number, tile: { x: number; y: number }) => {
   const key = tileKey(tile.x, tile.y);
@@ -44,8 +55,8 @@ const fallbackTileFor = (
 ) => {
   const candidates = [...allowedTiles];
   candidates.sort((a, b) => {
-    const distA = Math.abs(a.x - preferred.x) + Math.abs(a.y - preferred.y);
-    const distB = Math.abs(b.x - preferred.x) + Math.abs(b.y - preferred.y);
+    const distA = manhattanDistance(a, preferred);
+    const distB = manhattanDistance(b, preferred);
     if (distA !== distB) return distA - distB;
     const scoreA = (a.x * 17 + a.y * 31 + lobsterId * 13) % 97;
     const scoreB = (b.x * 17 + b.y * 31 + lobsterId * 13) % 97;
@@ -53,6 +64,64 @@ const fallbackTileFor = (
   });
   const available = candidates.find((tile) => !lobsterTileClaims.has(tileKey(tile.x, tile.y)));
   return available ?? preferred;
+};
+
+const chooseHomeTile = (
+  lobsterId: number,
+  lobsterName: string,
+  allowedTiles: Array<{ x: number; y: number }>,
+) => {
+  if (allowedTiles.length === 0) return { x: 0, y: 0 };
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  allowedTiles.forEach((tile) => {
+    minX = Math.min(minX, tile.x);
+    maxX = Math.max(maxX, tile.x);
+    minY = Math.min(minY, tile.y);
+    maxY = Math.max(maxY, tile.y);
+  });
+
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const maxRadius = Math.max(
+    1,
+    Math.max(
+      Math.abs(minX - centerX) + Math.abs(minY - centerY),
+      Math.abs(minX - centerX) + Math.abs(maxY - centerY),
+      Math.abs(maxX - centerX) + Math.abs(minY - centerY),
+      Math.abs(maxX - centerX) + Math.abs(maxY - centerY),
+    ),
+  );
+  const angleSeed = hashString(`${lobsterId}:${lobsterName}:angle`);
+  const radiusSeed = hashString(`${lobsterName}:${lobsterId}:radius`);
+  const desiredAngle = ((angleSeed % 3600) / 3600) * Math.PI * 2;
+  const desiredRadius = 0.66 + ((radiusSeed % 1000) / 1000) * 0.24;
+
+  const wrappedAngleDiff = (a: number, b: number) => {
+    const diff = Math.abs(a - b);
+    return Math.min(diff, Math.PI * 2 - diff);
+  };
+
+  const ranked = [...allowedTiles].sort((a, b) => {
+    const radiusNormA = (Math.abs(a.x - centerX) + Math.abs(a.y - centerY)) / maxRadius;
+    const radiusNormB = (Math.abs(b.x - centerX) + Math.abs(b.y - centerY)) / maxRadius;
+    const angleA = Math.atan2(a.y - centerY, a.x - centerX);
+    const angleB = Math.atan2(b.y - centerY, b.x - centerX);
+    const angleScoreA = 1 - wrappedAngleDiff(angleA, desiredAngle) / Math.PI;
+    const angleScoreB = 1 - wrappedAngleDiff(angleB, desiredAngle) / Math.PI;
+    const radiusScoreA = 1 - Math.abs(radiusNormA - desiredRadius);
+    const radiusScoreB = 1 - Math.abs(radiusNormB - desiredRadius);
+    const jitterA = ((Math.imul(a.x, 92821) ^ Math.imul(a.y, 68917) ^ angleSeed) >>> 0) % 1000;
+    const jitterB = ((Math.imul(b.x, 92821) ^ Math.imul(b.y, 68917) ^ angleSeed) >>> 0) % 1000;
+    const scoreA = radiusScoreA * 1.5 + angleScoreA * 1.15 + jitterA / 10000;
+    const scoreB = radiusScoreB * 1.5 + angleScoreB * 1.15 + jitterB / 10000;
+    return scoreB - scoreA;
+  });
+
+  return ranked[0];
 };
 
 const isHibernating = (data: LobsterData) => {
@@ -78,11 +147,37 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const allowedTileKeySet = React.useMemo(() => new Set(allowedTiles.map((tile) => tileKey(tile.x, tile.y))), [allowedTiles]);
   const sleeping = isHibernating(data);
+  const homeTile = React.useMemo(
+    () => chooseHomeTile(data.id, data.name, allowedTiles),
+    [allowedTiles, data.id, data.name],
+  );
+  const allowedBounds = React.useMemo(() => {
+    if (allowedTiles.length === 0) {
+      return { centerX: data.x, centerY: data.y };
+    }
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    allowedTiles.forEach((tile) => {
+      minX = Math.min(minX, tile.x);
+      maxX = Math.max(maxX, tile.x);
+      minY = Math.min(minY, tile.y);
+      maxY = Math.max(maxY, tile.y);
+    });
+    return {
+      centerX: (minX + maxX) / 2,
+      centerY: (minY + maxY) / 2,
+    };
+  }, [allowedTiles, data.x, data.y]);
 
-  const initialTarget = React.useMemo(() => {
+  const spawnTile = React.useMemo(() => {
     if (allowedTileKeySet.has(tileKey(data.x, data.y))) return { x: data.x, y: data.y };
-    return allowedTiles[0] ?? { x: data.x, y: data.y };
-  }, [allowedTileKeySet, allowedTiles, data.x, data.y]);
+    return homeTile;
+  }, [allowedTileKeySet, data.x, data.y, homeTile]);
+  const initialTarget = React.useMemo(() => {
+    return spawnTile;
+  }, [spawnTile]);
   const targetRef = useRef(initialTarget);
   const [target, setTarget] = useState(initialTarget);
 
@@ -103,9 +198,7 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
   }, [sleeping]);
 
   useEffect(() => {
-    const preferred = allowedTileKeySet.has(tileKey(data.x, data.y))
-      ? { x: data.x, y: data.y }
-      : (allowedTiles[0] ?? { x: data.x, y: data.y });
+    const preferred = homeTile;
     let claimed = preferred;
     if (!claimTile(data.id, preferred)) {
       claimed = fallbackTileFor(data.id, preferred, allowedTiles);
@@ -116,13 +209,15 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
     return () => {
       releaseClaim(data.id, targetRef.current);
     };
-  }, [allowedTileKeySet, allowedTiles, data.id, data.x, data.y]);
+  }, [allowedTiles, data.id, homeTile]);
 
   useEffect(() => {
     if (sleeping) return undefined;
     if (allowedTiles.length === 0) return undefined;
     const moveInterval = setInterval(() => {
       setTarget((prev) => {
+        const outerBias = (tile: { x: number; y: number }) =>
+          Math.abs(tile.x - allowedBounds.centerX) + Math.abs(tile.y - allowedBounds.centerY);
         const dirs = [
           { dx: 0, dy: 1 },
           { dx: 0, dy: -1 },
@@ -137,9 +232,32 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
           const occupant = lobsterTileClaims.get(tileKey(candidate.x, candidate.y));
           return occupant === undefined || occupant === data.id;
         });
+        const movingToHome = manhattanDistance(prev, homeTile) > 1;
         const nonStayFree = freeCandidates.filter((candidate) => !sameTile(candidate, prev));
-        const pool = nonStayFree.length > 0 ? nonStayFree : freeCandidates;
-        const next = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : prev;
+
+        let next = prev;
+        if (movingToHome) {
+          const pool = nonStayFree.length > 0 ? nonStayFree : freeCandidates;
+          next = [...pool].sort((a, b) => {
+            const homeDeltaA = manhattanDistance(a, homeTile);
+            const homeDeltaB = manhattanDistance(b, homeTile);
+            if (homeDeltaA !== homeDeltaB) return homeDeltaA - homeDeltaB;
+            return outerBias(b) - outerBias(a);
+          })[0] ?? prev;
+        } else {
+          const pool = nonStayFree.length > 0 ? nonStayFree : freeCandidates;
+          const ranked = [...pool].sort((a, b) => {
+            const homeDeltaA = manhattanDistance(a, homeTile);
+            const homeDeltaB = manhattanDistance(b, homeTile);
+            if (homeDeltaA !== homeDeltaB) return homeDeltaA - homeDeltaB;
+            const outerDelta = outerBias(b) - outerBias(a);
+            if (outerDelta !== 0) return outerDelta;
+            const jitterA = ((Math.imul(a.x, 17) ^ Math.imul(a.y, 31) ^ data.id) >>> 0) % 97;
+            const jitterB = ((Math.imul(b.x, 17) ^ Math.imul(b.y, 31) ^ data.id) >>> 0) % 97;
+            return jitterA - jitterB;
+          });
+          next = ranked[0] ?? prev;
+        }
 
         if (!sameTile(next, prev)) {
           releaseClaim(data.id, prev);
@@ -155,10 +273,10 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
         targetRef.current = next;
         return next;
       });
-    }, 2000 + Math.random() * 3000);
+    }, 1800 + (data.id % 5) * 600);
 
     return () => clearInterval(moveInterval);
-  }, [allowedTileKeySet, allowedTiles, data.id, sleeping]);
+  }, [allowedBounds.centerX, allowedBounds.centerY, allowedTileKeySet, allowedTiles, data.id, homeTile, sleeping]);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -177,8 +295,8 @@ export function Lobster({ data, allowedTiles, onSelect }: LobsterProps) {
     onSelect();
   };
 
-  const initPosX = gridCoordToWorld(initialTarget.x);
-  const initPosZ = gridCoordToWorld(initialTarget.y);
+  const initPosX = gridCoordToWorld(spawnTile.x);
+  const initPosZ = gridCoordToWorld(spawnTile.y);
   const initHeight = 0.12;
   const countdownText = formatCountdown(data.hibernationDeadlineAt, nowMs);
   const displayAspect = THREE.MathUtils.clamp(
